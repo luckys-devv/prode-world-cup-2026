@@ -1,0 +1,277 @@
+// ═══════════════════════════════════════════════════
+// CONFIGURACIÓN DE PRISMA
+// ═══════════════════════════════════════════════════
+
+// Generator: le dice a Prisma que genere el cliente de TypeScript.
+// Cuando corrés "prisma generate", Prisma lee este archivo y crea
+// código TypeScript en node_modules/@prisma/client con:
+//   - Tipos para cada modelo (User, Group, Match, etc.)
+//   - Métodos para consultar (findMany, create, update, delete)
+//   - Autocompletado total en tu editor
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Datasource: la conexión a tu base de datos PostgreSQL.
+// "url" lee la variable DATABASE_URL del archivo .env
+// Prisma se encarga de conectarse, no necesitás configurar nada más.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════
+// USUARIOS Y AUTENTICACIÓN
+// ═══════════════════════════════════════════════════
+
+// Cada persona que se registra en la app.
+// @map("users") → la tabla en PostgreSQL se llama "users" (minúsculas, plural)
+// pero en el código TypeScript usamos "User" (PascalCase, singular).
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones (no crean columnas, solo le dicen a Prisma cómo conectar tablas)
+  refreshTokens        RefreshToken[]
+  createdGroups        Group[]              @relation("GroupCreator")
+  groupMemberships     GroupMember[]
+  sentInvitations      Invitation[]         @relation("InvitationSender")
+  receivedInvitations  Invitation[]         @relation("InvitationReceiver")
+  matchPredictions     MatchPrediction[]
+  groupLeaderPredictions GroupLeaderPrediction[]
+  championPredictions  ChampionPrediction[]
+
+  @@map("users")
+}
+
+// Tokens de refresco para mantener la sesión activa.
+// Cada vez que el usuario hace "refresh", se crea uno nuevo y se revoca el anterior.
+// Esto permite detectar si alguien roba un refresh token (ataque de replay).
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revoked   Boolean  @default(false)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ═══════════════════════════════════════════════════
+// GRUPOS
+// ═══════════════════════════════════════════════════
+
+// Un grupo de amigos que juegan al prode juntos.
+// scoringConfig se guarda como JSON porque es un objeto que siempre
+// se lee y escribe completo (las 4 opciones de puntaje).
+model Group {
+  id               Int      @id @default(autoincrement())
+  name             String   @db.VarChar(100)
+  inviteCode       String   @unique @map("invite_code") @db.VarChar(10)
+  prizeDescription String?  @map("prize_description") @db.VarChar(255)
+  maxMembers       Int      @default(50) @map("max_members")
+  // JSON con la configuración de puntaje (ScoringConfig del shared)
+  // Ejemplo: { winnerPrediction: { enabled: true, points: 1 }, ... }
+  scoringConfig    Json     @map("scoring_config")
+  creatorId        Int      @map("creator_id")
+  creator          User     @relation("GroupCreator", fields: [creatorId], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  members              GroupMember[]
+  invitations          Invitation[]
+  matchPredictions     MatchPrediction[]
+  groupLeaderPredictions GroupLeaderPrediction[]
+  championPredictions  ChampionPrediction[]
+
+  @@map("groups")
+}
+
+// Relación muchos-a-muchos: un usuario puede estar en varios grupos,
+// un grupo puede tener varios usuarios.
+model GroupMember {
+  id       Int      @id @default(autoincrement())
+  groupId  Int      @map("group_id")
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   Int      @map("user_id")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String   @default("member") // "admin" | "member"
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  // Un usuario no puede estar dos veces en el mismo grupo
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+// ═══════════════════════════════════════════════════
+// INVITACIONES
+// ═══════════════════════════════════════════════════
+
+// Cuando alguien invita a otro por email.
+// Si el invitado NO tiene cuenta, se guarda solo el email.
+// Cuando esa persona se registre, buscamos invitaciones por su email.
+model Invitation {
+  id         Int      @id @default(autoincrement())
+  groupId    Int      @map("group_id")
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  senderId   Int      @map("sender_id")
+  sender     User     @relation("InvitationSender", fields: [senderId], references: [id])
+  // receiverId es null si el invitado aún no se registró
+  receiverId Int?     @map("receiver_id")
+  receiver   User?    @relation("InvitationReceiver", fields: [receiverId], references: [id])
+  email      String
+  status     String   @default("pending") // "pending" | "accepted" | "rejected"
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // No enviar 2 invitaciones al mismo email para el mismo grupo
+  @@unique([groupId, email])
+  // Para buscar invitaciones al registrarse
+  @@index([email])
+  // Para la bandeja de entrada del usuario
+  @@index([receiverId])
+  @@map("invitations")
+}
+
+// ═══════════════════════════════════════════════════
+// DATOS DEPORTIVOS (Cacheados de football-data.org)
+// ═══════════════════════════════════════════════════
+
+// Los 48 equipos del Mundial 2026.
+// Se sincroniza UNA VEZ desde la API y se guarda localmente.
+model Team {
+  id         Int     @id @default(autoincrement())
+  externalId Int     @unique @map("external_id")
+  name       String  @db.VarChar(100)
+  shortName  String  @map("short_name") @db.VarChar(50)
+  tla        String  @db.VarChar(5)
+  crestUrl   String? @map("crest_url")
+
+  homeMatches            Match[]                @relation("HomeTeam")
+  awayMatches            Match[]                @relation("AwayTeam")
+  groupLeaderPredictions GroupLeaderPrediction[]
+  championPredictions    ChampionPrediction[]
+
+  @@map("teams")
+}
+
+// Cada partido del Mundial.
+// Se sincroniza periódicamente desde la API.
+model Match {
+  id          Int      @id @default(autoincrement())
+  externalId  Int      @unique @map("external_id")
+  homeTeamId  Int      @map("home_team_id")
+  homeTeam    Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId  Int      @map("away_team_id")
+  awayTeam    Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  matchDate   DateTime @map("match_date")
+  stage       String   // GROUP_STAGE, LAST_32, LAST_16, etc.
+  groupName   String?  @map("group_name") // GROUP_A, GROUP_B... (null en eliminatorias)
+  matchday    Int?
+  status      String   @default("SCHEDULED")
+  // Resultado (se llena cuando status = FINISHED)
+  result      String?  // "HOME_TEAM" | "AWAY_TEAM" | "DRAW"
+  homeScore   Int?     @map("home_score")
+  awayScore   Int?     @map("away_score")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  predictions MatchPrediction[]
+
+  @@index([matchDate])
+  @@index([stage])
+  @@index([status])
+  @@map("matches")
+}
+
+// ═══════════════════════════════════════════════════
+// PREDICCIONES
+// ═══════════════════════════════════════════════════
+
+// Predicción de un usuario para UN partido específico.
+// Puede incluir quién gana Y/O el resultado exacto, según la config del grupo.
+model MatchPrediction {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId            Int      @map("match_id")
+  match              Match    @relation(fields: [matchId], references: [id])
+  groupId            Int      @map("group_id")
+  group              Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  // Predicción de quién gana: "HOME_TEAM", "AWAY_TEAM", "DRAW"
+  prediction         String
+  // Resultado exacto predicho (nullable: solo si el grupo habilitó esta opción)
+  predictedHomeScore Int?     @map("predicted_home_score")
+  predictedAwayScore Int?     @map("predicted_away_score")
+  // Puntos desglosados (null = pendiente, 0 = falló)
+  winnerPoints       Int?     @map("winner_points")
+  exactScorePoints   Int?     @map("exact_score_points")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Un usuario solo puede hacer UNA predicción por partido por grupo
+  @@unique([userId, matchId, groupId])
+  @@index([groupId])
+  @@index([matchId])
+  @@map("match_predictions")
+}
+
+// Predicción de qué equipo termina 1° en cada grupo del Mundial.
+// Hay 12 grupos (A-L). Se calcula al terminar la fase de grupos.
+model GroupLeaderPrediction {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId       Int      @map("group_id")
+  group         Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  worldCupGroup String   @map("world_cup_group") // "GROUP_A", "GROUP_B", etc.
+  teamId        Int      @map("team_id")
+  team          Team     @relation(fields: [teamId], references: [id])
+  pointsEarned  Int?     @map("points_earned")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Una predicción por usuario, por grupo del prode, por grupo del mundial
+  @@unique([userId, groupId, worldCupGroup])
+  @@index([groupId])
+  @@map("group_leader_predictions")
+}
+
+// Predicción de qué equipo gana el Mundial.
+// Se calcula cuando termina la final.
+model ChampionPrediction {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId      Int      @map("group_id")
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teamId       Int      @map("team_id")
+  team         Team     @relation(fields: [teamId], references: [id])
+  pointsEarned Int?     @map("points_earned")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Una predicción de campeón por usuario por grupo
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@map("champion_predictions")
+}
+
+// ═══════════════════════════════════════════════════
+// METADATA DE SINCRONIZACIÓN
+// ═══════════════════════════════════════════════════
+
+// Registro de cada sincronización con football-data.org.
+// Para auditoría y debug.
+model SyncLog {
+  id        Int      @id @default(autoincrement())
+  type      String   // "teams" | "matches" | "results"
+  status    String   // "success" | "error"
+  details   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sync_logs")
+}
