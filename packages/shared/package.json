@@ -1,0 +1,11 @@
+{
+  "name": "@prode/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tipos TypeScript compartidos entre backend y app",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

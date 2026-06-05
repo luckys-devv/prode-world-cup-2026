@@ -1,0 +1,7 @@
+# pnpm-workspace.yaml
+# Define qué carpetas son "packages" dentro del monorepo.
+# pnpm instalará dependencias de todos estos packages juntos,
+# permitiendo que se referencien entre sí con "workspace:*"
+packages:
+  - "apps/*"
+  - "packages/*"

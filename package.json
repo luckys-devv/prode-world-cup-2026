@@ -1,0 +1,24 @@
+{
+  "name": "prode-con-amigos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prode del Mundial FIFA 2026 - App de pronósticos para amigos",
+  "scripts": {
+    "dev:api": "pnpm --filter @prode/api dev",
+    "dev:mobile": "pnpm --filter @prode/mobile start",
+    "dev:web": "pnpm --filter @prode/mobile web",
+    "build:api": "pnpm --filter @prode/api build",
+    "build:mobile": "pnpm --filter @prode/mobile build",
+    "db:generate": "pnpm --filter @prode/api db:generate",
+    "db:push": "pnpm --filter @prode/api db:push",
+    "db:migrate": "pnpm --filter @prode/api db:migrate",
+    "db:studio": "pnpm --filter @prode/api db:studio",
+    "db:seed": "pnpm --filter @prode/api db:seed",
+    "clean": "pnpm -r exec -- rm -rf node_modules dist .expo",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
