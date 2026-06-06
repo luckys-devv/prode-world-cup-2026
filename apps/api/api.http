@@ -1,0 +1,103 @@
+### ═══════════════════════════════════════
+### VARIABLES
+### ═══════════════════════════════════════
+@baseUrl = http://localhost:3001/api
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImVtYWlsIjoibHVrZUB0ZXN0LmNvbSIsImlhdCI6MTc4MDcxOTY5MSwiZXhwIjoxNzgwNzIxNDkxfQ.YjCH8DIwMaHCIo2f8YC1d7wAB8wfhRp3stl8lffG9f0
+
+### ═══════════════════════════════════════
+### HEALTH CHECK
+### ═══════════════════════════════════════
+
+GET http://localhost:3001/health
+
+### ═══════════════════════════════════════
+### AUTH - REGISTRO
+### ═══════════════════════════════════════
+
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "luke@test.com",
+  "password": "123456",
+  "displayName": "Luke"
+}
+
+### ═══════════════════════════════════════
+### AUTH - LOGIN
+### ═══════════════════════════════════════
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "luke@test.com",
+  "password": "123456"
+}
+
+### ═══════════════════════════════════════
+### AUTH - REFRESH TOKEN
+### ═══════════════════════════════════════
+
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "JWT_REFRESH_SECRET"
+}
+
+### ═══════════════════════════════════════
+### AUTH - LOGOUT
+### ═══════════════════════════════════════
+
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "refreshToken": "ACA_PEGA_EL_REFRESH_TOKEN"
+}
+
+
+### ═══════════════════════════════════════
+### ADMIN - SINCRONIZACIÓN
+### ═══════════════════════════════════════
+
+### 1. Sincronizar Equipos (Ejecutar primero)
+# Carga los 48 países participantes en la tabla 'teams'
+POST {{baseUrl}}/admin/sync/teams
+Authorization: Bearer {{accessToken}}
+
+### 2. Sincronizar Partidos y Resultados
+# Carga todo el fixture de partidos del mundial
+POST {{baseUrl}}/admin/sync/matches
+Authorization: Bearer {{accessToken}}
+
+### 3. Consultar Logs de Sincronización
+# Muestra el historial de syncs ejecutados
+GET {{baseUrl}}/admin/sync/logs
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════
+### PARTIDOS (FIXTURE)
+### ═══════════════════════════════════════
+
+### 4. Obtener todos los partidos
+GET {{baseUrl}}/matches
+Authorization: Bearer {{accessToken}}
+
+### 5. Filtrar partidos por Fase (Fase de Grupos)
+# Opciones: GROUP_STAGE, LAST_32, LAST_16, QUARTER_FINALS, SEMI_FINALS, FINAL
+GET {{baseUrl}}/matches?stage=GROUP_STAGE
+Authorization: Bearer {{accessToken}}
+
+### 6. Filtrar partidos por Grupo específico
+# Opciones: GROUP_A, GROUP_B, etc.
+GET {{baseUrl}}/matches?groupName=GROUP_A
+Authorization: Bearer {{accessToken}}
+
+### 7. Obtener detalle de un partido individual
+# Nota: Cambiar el '1' por un ID de partido real que veas en la lista anterior
+GET {{baseUrl}}/matches/1
+Authorization: Bearer {{accessToken}}
