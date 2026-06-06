@@ -2,9 +2,6 @@
 // CONFIGURACIÓN DE PRISMA
 // ═══════════════════════════════════════════════════
 
-// Generator: le dice a Prisma que genere el cliente de TypeScript.
-// Cuando corrés "prisma generate", Prisma lee este archivo y crea
-// código TypeScript en node_modules/@prisma/client con:
 //   - Tipos para cada modelo (User, Group, Match, etc.)
 //   - Métodos para consultar (findMany, create, update, delete)
 //   - Autocompletado total en tu editor
