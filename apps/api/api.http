@@ -2,7 +2,7 @@
 ### VARIABLES
 ### ═══════════════════════════════════════
 @baseUrl = http://localhost:3001/api
-@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImVtYWlsIjoibHVrZUB0ZXN0LmNvbSIsImlhdCI6MTc4MDcxOTY5MSwiZXhwIjoxNzgwNzIxNDkxfQ.YjCH8DIwMaHCIo2f8YC1d7wAB8wfhRp3stl8lffG9f0
+@accessToken = "Pegar_token_de_rpta"
 
 ### ═══════════════════════════════════════
 ### HEALTH CHECK
