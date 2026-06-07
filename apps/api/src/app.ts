@@ -1,4 +1,3 @@
-// Configuracion express
 import express, { Express } from 'express';
 import cors from 'cors';
 // helmet: agrega headers HTTP de seguridad automáticamente.
@@ -44,10 +43,16 @@ app.get('/health', (req, res) => {
 import authRoutes from './modules/auth/auth.routes.js';
 import syncRoutes from './modules/sync/sync.routes.js';
 import matchesRoutes from './modules/matches/matches.routes.js';
+import groupsRoutes from './modules/groups/groups.routes.js';
+import invitationsRoutes from './modules/invitations/invitations.routes.js';
+import predictionsRoutes from './modules/predictions/predictions.routes.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/sync', syncRoutes);
 app.use('/api/matches', matchesRoutes);
+app.use('/api/groups', groupsRoutes);
+app.use('/api/invitations', invitationsRoutes);
+app.use('/api/predictions', predictionsRoutes);
 
 app.use(errorHandler);
 
