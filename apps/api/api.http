@@ -2,7 +2,7 @@
 ### VARIABLES
 ### ═══════════════════════════════════════
 @baseUrl = http://localhost:3001/api
-@accessToken = "Pegar_token_de_rpta"
+@accessToken = "Aqui_token_devuelto"
 
 ### ═══════════════════════════════════════
 ### HEALTH CHECK
@@ -18,9 +18,9 @@ POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "luke@test.com",
+  "email": "amigo@test.com",
   "password": "123456",
-  "displayName": "Luke"
+  "displayName": "Anakin"
 }
 
 ### ═══════════════════════════════════════
@@ -100,4 +100,100 @@ Authorization: Bearer {{accessToken}}
 ### 7. Obtener detalle de un partido individual
 # Nota: Cambiar el '1' por un ID de partido real que veas en la lista anterior
 GET {{baseUrl}}/matches/1
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════
+### GRUPOS
+### ═══════════════════════════════════════
+
+### 8. Crear un nuevo Grupo de Prode
+# Creamos el grupo configurando exactamente qué puntajes queremos habilitar
+POST {{baseUrl}}/groups
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Los Pibes del Fulbo",
+  "prizeDescription": "Un asado completo pagado por el perdedor",
+  "scoringConfig": {
+    "winnerPrediction": { "enabled": true, "points": 1 },
+    "exactScore": { "enabled": true, "points": 3 },
+    "groupLeader": { "enabled": false, "points": 0 },
+    "champion": { "enabled": true, "points": 5 }
+  }
+}
+
+### 9. Listar mis Grupos
+GET {{baseUrl}}/groups
+Authorization: Bearer {{accessToken}}
+
+### 10. Obtener detalles de un Grupo
+# Nota: Cambiar el '1' por el ID de grupo real obtenido al listarlos
+GET {{baseUrl}}/groups/1
+Authorization: Bearer {{accessToken}}
+
+### 11. Unirse a un Grupo por Código
+# Nota: Cambiar el 'CODIGO8X' por el inviteCode del grupo al que querés unirte
+POST {{baseUrl}}/groups/join/CODIGO8X
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════
+### INVITACIONES POR MAIL
+### ═══════════════════════════════════════
+
+### 12. Invitar amigo por Email
+# Nota: El emisor debe ser el creador (admin) del groupId especificado
+POST {{baseUrl}}/invitations
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "groupId": 1,
+  "email": "amigo@test.com"
+}
+
+### 13. Ver mi bandeja de entrada (Invitaciones pendientes)
+# Deberías ver las invitaciones enviadas a tu email actual
+GET {{baseUrl}}/invitations/inbox
+Authorization: Bearer {{accessToken}}
+
+### 14. Aceptar una Invitación
+# Nota: Cambiar el '1' por el ID de invitación obtenido en tu inbox (Petición 13)
+PUT {{baseUrl}}/invitations/1/accept
+Authorization: Bearer {{accessToken}}
+
+### 15. Rechazar una Invitación
+# Nota: Cambiar el '1' por el ID de invitación obtenido en tu inbox (Petición 13)
+PUT {{baseUrl}}/invitations/1/reject
+Authorization: Bearer {{accessToken}}
+
+
+### ═══════════════════════════════════════
+### PREDICCIONES (PRONÓSTICOS)
+  ### ═══════════════════════════════════════
+
+### 16. Guardar o Actualizar una Predicción
+# Nota: El partido (matchId) debe estar en el futuro
+POST {{baseUrl}}/predictions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "groupId": 1,
+  "matchId": 1,
+  "prediction": "HOME_TEAM",
+  "predictedHomeScore": 1,
+  "predictedAwayScore": 1
+}
+
+### 17. Ver mis Predicciones en un Grupo
+GET {{baseUrl}}/predictions/group/1
+Authorization: Bearer {{accessToken}}
+
+### 18. Ver Predicciones de todos para un Partido (Privacidad aplicada)
+# Si el partido no empezó y el grupo lo configuró privado (showPredictionsBeforeStart=false), 
+# los votos de tus amigos dirán "HIDDEN" y las puntuaciones serán null.
+GET {{baseUrl}}/predictions/group/1/match/1
 Authorization: Bearer {{accessToken}}
