@@ -69,3 +69,21 @@ export async function joinGroupHandler(req: Request, res: Response, next: NextFu
     next(error);
   }
 }
+
+/**
+ * Obtiene la tabla de posiciones del grupo.
+ */
+export async function getGroupLeaderboardHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const groupId = parseInt(req.params.id as string, 10);
+    if (isNaN(groupId)) {
+      return sendBadRequest(res, 'El ID de grupo provisto no es válido.');
+    }
+
+    const userId = req.user!.userId;
+    const leaderboard = await groupsService.getGroupLeaderboard(groupId, userId);
+    sendSuccess(res, leaderboard, 'Tabla de posiciones obtenida con éxito.');
+  } catch (error) {
+    next(error);
+  }
+}
