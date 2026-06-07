@@ -2,7 +2,7 @@
 ### VARIABLES
 ### ═══════════════════════════════════════
 @baseUrl = http://localhost:3001/api
-@accessToken = "Aqui_token_devuelto"
+@accessToken = "Pega_el_token_devuelto"
 
 ### ═══════════════════════════════════════
 ### HEALTH CHECK
@@ -138,6 +138,10 @@ Authorization: Bearer {{accessToken}}
 POST {{baseUrl}}/groups/join/CODIGO8X
 Authorization: Bearer {{accessToken}}
 
+### 11b. Obtener Tabla de Posiciones del Grupo (Leaderboard)
+# Nota: Cambiar el '1' por el ID de tu grupo
+GET {{baseUrl}}/groups/1/leaderboard
+Authorization: Bearer {{accessToken}}
 
 ### ═══════════════════════════════════════
 ### INVITACIONES POR MAIL
