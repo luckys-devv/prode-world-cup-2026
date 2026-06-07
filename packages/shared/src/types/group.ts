@@ -42,6 +42,8 @@ export interface ScoringConfig {
     enabled: boolean;
     points: number; // Ej: 5
   };
+  /** Si está en true, se ven las predicciones de los demás antes de que empiece el partido */
+  showPredictionsBeforeStart?: boolean;
 }
 
 // ─── spicy ENTIDADES ───
