@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.post('/', groupsController.createGroupHandler);
 router.get('/', groupsController.listGroupsHandler);
 router.get('/:id', groupsController.getGroupDetailHandler);
+router.get('/:id/leaderboard', groupsController.getGroupLeaderboardHandler)
 router.post('/join/:code', groupsController.joinGroupHandler);
 
 export default router;
