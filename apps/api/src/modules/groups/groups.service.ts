@@ -183,3 +183,80 @@ export async function joinGroupByCode(userId: number, inviteCode: string) {
     },
   });
 }
+
+/**
+ * Obtener la tabla de posiciones (leaderboard) ordenada de un grupo.
+ */
+export async function getGroupLeaderboard(groupId: number, userId: number) {
+  // 1. Validar que el usuario sea miembro del grupo
+  const membership = await db.groupMember.findUnique({
+    where: { groupId_userId: { groupId, userId } },
+  });
+
+  if (!membership) {
+    const error = new Error('No tienes permiso para ver la tabla de posiciones de este grupo.') as any;
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 2. Obtener todos los miembros del grupo
+  const members = await db.groupMember.findMany({
+    where: { groupId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+        },
+      },
+    },
+  });
+
+  // 3. Obtener todas las predicciones puntuadas de este grupo
+  const predictions = await db.matchPrediction.findMany({
+    where: {
+      groupId,
+      OR: [
+        { winnerPoints: { not: null } },
+        { exactScorePoints: { not: null } },
+      ],
+    },
+  });
+
+  // 4. Calcular puntos en memoria (es ultra rápido por estar limitado a 50 miembros)
+  const leaderboard = members.map((member) => {
+    const userPreds = predictions.filter((p) => p.userId === member.userId);
+
+    let aciertosGanador = 0;
+    let aciertosExacto = 0;
+    let puntosTotales = 0;
+
+    userPreds.forEach((pred) => {
+      const w = pred.winnerPoints ?? 0;
+      const e = pred.exactScorePoints ?? 0;
+      puntosTotales += (w + e);
+      if (w > 0) aciertosGanador++;
+      if (e > 0) aciertosExacto++;
+    });
+
+    return {
+      userId: member.user.id,
+      displayName: member.user.displayName,
+      role: member.role,
+      aciertosGanador,
+      aciertosExacto,
+      puntosTotales,
+    };
+  });
+
+  // 5. Ordenar: 1° puntos totales DESC, 2° aciertos exactos DESC, 3° aciertos ganador DESC
+  return leaderboard.sort((a, b) => {
+    if (b.puntosTotales !== a.puntosTotales) {
+      return b.puntosTotales - a.puntosTotales;
+    }
+    if (b.aciertosExacto !== a.aciertosExacto) {
+      return b.aciertosExacto - a.aciertosExacto;
+    }
+    return b.aciertosGanador - a.aciertosGanador;
+  });
+}
