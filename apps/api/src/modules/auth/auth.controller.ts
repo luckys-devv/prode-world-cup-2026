@@ -14,9 +14,11 @@ export async function registerHandler(req: Request, res: Response, next: NextFun
   try {
     // Validar datos del body con Zod
     const parsed = registerSchema.safeParse(req.body);
+
     if (!parsed.success) {
-      // Si falla, respondemos con 400 y los errores de validación
-      return sendBadRequest(res, 'Datos de registro inválidos', parsed.error.format());
+      // Extraemos el primer mensaje de error específico que definió Zod
+      const message = parsed.error.errors[0]?.message || 'Datos de registro inválidos';
+      return sendBadRequest(res, message, parsed.error.format());
     }
 
     const result = await authService.register(parsed.data);
