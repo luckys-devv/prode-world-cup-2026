@@ -1,98 +1,118 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import React from 'react';
+import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../stores/authStore';
+import { Colors, Spacing } from '../constants/theme';
+import { ThemedText } from '../components/themed-text';
+import { ThemedView } from '../components/themed-view';
 
 export default function HomeScreen() {
+  const { user } = useAuthStore();
+  const router = useRouter();
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.welcomeHeader}>
+        <ThemedText type="smallBold" themeColor="accentSecondary">
+          PANEL PRINCIPAL
         </ThemedText>
+        <ThemedText type="subtitle" style={styles.username}>
+          ¡Hola, {user?.displayName || 'Jugador'}! 👋
+        </ThemedText>
+        <ThemedText themeColor="textSecondary" type="small">
+          Bienvenido al Prode del Mundial FIFA 2026.
+        </ThemedText>
+      </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      {/* Tarjeta de Resumen Rápido */}
+      <ThemedView type="backgroundElement" style={styles.statsCard}>
+        <View style={styles.statBox}>
+          <ThemedText type="title" style={styles.statValue}>0</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">Puntos</ThemedText>
+        </View>
+        <View style={[styles.statBox, styles.statBorder]}>
+          <ThemedText type="title" style={styles.statValue}>0</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">Mis Grupos</ThemedText>
+        </View>
+      </ThemedView>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      {/* Accesos Rápidos */}
+      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
+        ACCESOS RÁPIDOS
+      </ThemedText>
+
+      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/fixture')}>
+        <View>
+          <ThemedText type="smallBold" themeColor="text">📅 Ver Fixture Completo</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">Revisá los partidos y poné tus pronósticos</ThemedText>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/groups')}>
+        <View>
+          <ThemedText type="smallBold" themeColor="text">👥 Mis Grupos con Amigos</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">Creá un grupo o unite a uno existente</ThemedText>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/inbox')}>
+        <View>
+          <ThemedText type="smallBold" themeColor="text">📬 Invitaciones Recibidas</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">Unite a las salas a las que fuiste invitado</ThemedText>
+        </View>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: Colors.light.background,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+  content: {
+    padding: Spacing.four,
     gap: Spacing.four,
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
   },
-  title: {
-    textAlign: 'center',
+  welcomeHeader: {
+    marginVertical: Spacing.two,
   },
-  code: {
-    textTransform: 'uppercase',
+  username: {
+    fontWeight: 'bold',
+    marginTop: Spacing.one,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  statsCard: {
+    flexDirection: 'row',
+    borderRadius: Spacing.three,
+    padding: Spacing.four,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statBorder: {
+    borderLeftWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#00D2FF',
+  },
+  sectionTitle: {
+    marginTop: Spacing.two,
+  },
+  actionCard: {
+    backgroundColor: Colors.light.backgroundElement,
+    padding: Spacing.four,
+    borderRadius: Spacing.three,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
 });

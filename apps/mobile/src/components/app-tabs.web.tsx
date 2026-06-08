@@ -1,3 +1,4 @@
+// apps/mobile/src/components/app-tabs.web.tsx
 import {
   Tabs,
   TabList,
@@ -6,10 +7,8 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { SymbolView } from 'expo-symbols';
 import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
 
-import { ExternalLink } from './external-link';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
@@ -17,18 +16,25 @@ import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 
 export default function AppTabs() {
   return (
-    <Tabs>
-      <TabSlot style={{ height: '100%' }} />
+    <Tabs style={{ flex: 1, backgroundColor: Colors.dark.background }}>
+      {/* TabSlot renderiza la pantalla activa. Le damos paddingTop de 88px para no superponerse con el menú absoluto */}
+      <TabSlot style={{ flex: 1, paddingTop: 88 }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
-            <TabButton>Home</TabButton>
-          </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Explore</TabButton>
+          <TabTrigger name="index" href="/" asChild>
+            <TabButton>Inicio</TabButton>
           </TabTrigger>
           <TabTrigger name="fixture" href="/fixture" asChild>
             <TabButton>Fixture</TabButton>
+          </TabTrigger>
+          <TabTrigger name="groups" href="/groups" asChild>
+            <TabButton>Grupos</TabButton>
+          </TabTrigger>
+          <TabTrigger name="inbox" href="/inbox" asChild>
+            <TabButton>Bandeja</TabButton>
+          </TabTrigger>
+          <TabTrigger name="profile" href="/profile" asChild>
+            <TabButton>Perfil</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -38,11 +44,11 @@ export default function AppTabs() {
 
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable style={({ pressed }) => pressed && styles.pressed} {...props}>
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+        <ThemedText type="smallBold" themeColor={isFocused ? 'accentSecondary' : 'textSecondary'}>
           {children}
         </ThemedText>
       </ThemedView>
@@ -51,28 +57,14 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 export function CustomTabList(props: TabListProps) {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
-
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          Prode con Amigos
+          ⚽ Prode con Amigos
         </ThemedText>
 
         {props.children}
-
-        <ExternalLink href="https://docs.expo.dev" asChild>
-          <Pressable style={styles.externalPressable}>
-            <ThemedText type="link">Docs</ThemedText>
-            <SymbolView
-              tintColor={colors.text}
-              name={{ ios: 'arrow.up.right.square', web: 'link' }}
-              size={12}
-            />
-          </Pressable>
-        </ExternalLink>
       </ThemedView>
     </View>
   );
@@ -86,6 +78,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
+    zIndex: 10, // Mantenemos el menú por encima del contenido
   },
   innerContainer: {
     paddingVertical: Spacing.two,
@@ -96,9 +89,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
+    borderWidth: 1,
+    borderColor: '#2A3154',
   },
   brandText: {
     marginRight: 'auto',
+    color: '#00D2FF', // Celeste premium
   },
   pressed: {
     opacity: 0.7,
@@ -107,12 +103,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
-  },
-  externalPressable: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.one,
-    marginLeft: Spacing.three,
+    cursor: 'pointer',
   },
 });
