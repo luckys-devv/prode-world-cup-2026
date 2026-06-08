@@ -34,9 +34,9 @@ export default function LoginScreen() {
 
     try {
       if (isLoginMode) {
-        await authService.login(email, password);
+        await authService.login({ email, password });
       } else {
-        await authService.register(email, password, displayName);
+        await authService.register({ email, password, displayName });
       }
     } catch (err: any) {
       // Tomamos el mensaje de error provisto por el backend
