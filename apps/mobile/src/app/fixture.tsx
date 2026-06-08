@@ -51,6 +51,17 @@ export default function FixtureScreen() {
     const dateParsed = new Date(item.matchDate);
     const dateFormatted = format(dateParsed, "EEEE d 'de' MMMM - HH:mm 'hs'", { locale: es });
 
+    // Determinamos si el partido ya empezó o finalizó
+    const hasStarted =
+      item.status === MatchStatus.IN_PLAY ||
+      item.status === MatchStatus.PAUSED ||
+      item.status === MatchStatus.FINISHED;
+
+    // Se puede pronosticar si aún está programado o confirmado con horario
+    const canPredict =
+      item.status === MatchStatus.SCHEDULED ||
+      item.status === MatchStatus.TIMED;
+
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
@@ -77,7 +88,7 @@ export default function FixtureScreen() {
 
           {/* Marcador */}
           <View style={styles.scoreContainer}>
-            {item.status === MatchStatus.FINISHED || item.status === MatchStatus.IN_PLAY ? (
+            {hasStarted ? (
               <View style={styles.scoreRow}>
                 <Text style={styles.scoreText}>{item.homeScore}</Text>
                 <Text style={styles.scoreDivider}>-</Text>
@@ -90,6 +101,11 @@ export default function FixtureScreen() {
             {item.status === MatchStatus.IN_PLAY && (
               <View style={styles.liveBadge}>
                 <Text style={styles.liveText}>EN VIVO</Text>
+              </View>
+            )}
+            {item.status === MatchStatus.PAUSED && (
+              <View style={[styles.liveBadge, { backgroundColor: '#E2B13C' }]}>
+                <Text style={styles.liveText}>ENTRETIEMPO</Text>
               </View>
             )}
           </View>
@@ -107,7 +123,7 @@ export default function FixtureScreen() {
           </View>
         </View>
 
-        {item.status === MatchStatus.SCHEDULED && (
+        {canPredict && (
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionButtonText}>Pronosticar</Text>
           </TouchableOpacity>
