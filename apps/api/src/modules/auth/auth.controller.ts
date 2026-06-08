@@ -49,7 +49,8 @@ export async function refreshHandler(req: Request, res: Response, next: NextFunc
   try {
     const parsed = refreshSchema.safeParse(req.body);
     if (!parsed.success) {
-      return sendBadRequest(res, 'Refresh token inválido', parsed.error.format());
+      const message = parsed.error.errors[0]?.message || 'Refresh token inválido';
+      return sendBadRequest(res, message, parsed.error.format());
     }
 
     const result = await authService.refresh(parsed.data.refreshToken);
