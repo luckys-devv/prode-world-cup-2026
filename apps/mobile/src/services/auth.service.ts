@@ -1,46 +1,45 @@
 import { api } from './api';
 import { useAuthStore } from '../stores/authStore';
-//import * as SecureStore from 'expo-secure-store';
 import { storage } from '../utils/storage';
+// Importamos las interfaces unificadas de peticiones y respuestas
+import { LoginRequest, RegisterRequest, AuthResponse } from '@prode/shared';
 
 /**
- * Llama al backend para iniciar sesión e impacta el store.
+ * Inicia sesión usando la interfaz LoginRequest y devuelve la respuesta tipada.
  */
-export async function login(email: string, password: string) {
+export async function login(input: LoginRequest): Promise<AuthResponse> {
   try {
-    const response = await api.post('/auth/login', { email, password });
-    const { accessToken, refreshToken, user } = response.data.data;
+    const response = await api.post('/auth/login', input);
+    const authData = response.data.data as AuthResponse;
 
-    // Guardamos sesión en Zustand y SecureStore
-    await useAuthStore.getState().login(accessToken, refreshToken, user);
-    return response.data;
+    // Guardamos en el store global con tipos limpios
+    await useAuthStore.getState().login(authData.accessToken, authData.refreshToken, authData.user);
+    return authData;
   } catch (error: any) {
     throw error.response?.data?.error || new Error('Error al iniciar sesión');
   }
 }
 
 /**
- * Llama al backend para registrar un usuario nuevo e impacta el store.
+ * Registra un usuario usando la interfaz RegisterRequest y devuelve la respuesta tipada.
  */
-export async function register(email: string, password: string, displayName: string) {
+export async function register(input: RegisterRequest): Promise<AuthResponse> {
   try {
-    const response = await api.post('/auth/register', { email, password, displayName });
-    const { accessToken, refreshToken, user } = response.data.data;
+    const response = await api.post('/auth/register', input);
+    const authData = response.data.data as AuthResponse;
 
-    // Guardamos sesión
-    await useAuthStore.getState().login(accessToken, refreshToken, user);
-    return response.data;
+    await useAuthStore.getState().login(authData.accessToken, authData.refreshToken, authData.user);
+    return authData;
   } catch (error: any) {
     throw error.response?.data?.error || new Error('Error al registrarse');
   }
 }
 
 /**
- * Cierra la sesión, avisando al backend para revocar el token e invalidando la sesión local.
+ * Cierra la sesión revocando el token en el backend y limpiando el almacenamiento local.
  */
-export async function logout() {
+export async function logout(): Promise<void> {
   try {
-    //const refreshToken = await SecureStore.getItemAsync('refreshToken');
     const refreshToken = await storage.getItem('refreshToken');
     if (refreshToken) {
       await api.post('/auth/logout', { refreshToken });
@@ -48,7 +47,6 @@ export async function logout() {
   } catch (error) {
     console.error('Error al avisar de logout al backend:', error);
   } finally {
-    // Limpiamos siempre a nivel local para no trabar al usuario
     await useAuthStore.getState().logout();
   }
 }
