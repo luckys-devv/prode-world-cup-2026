@@ -12,5 +12,6 @@ router.get('/', groupsController.listGroupsHandler);
 router.get('/:id', groupsController.getGroupDetailHandler);
 router.get('/:id/leaderboard', groupsController.getGroupLeaderboardHandler)
 router.post('/join/:code', groupsController.joinGroupHandler);
+router.delete('/:id', groupsController.deleteGroupHandler);
 
 export default router;

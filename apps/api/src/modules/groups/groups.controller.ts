@@ -87,3 +87,22 @@ export async function getGroupLeaderboardHandler(req: Request, res: Response, ne
     next(error);
   }
 }
+
+/**
+ * Elimina un grupo (solo si el creador está solo en la sala).
+ * DELETE /api/groups/:id
+ */
+export async function deleteGroupHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const groupId = parseInt(req.params.id as string, 10);
+    if (isNaN(groupId)) {
+      return sendBadRequest(res, 'El ID de grupo provisto no es válido.');
+    }
+
+    const userId = req.user!.userId;
+    await groupsService.deleteGroup(groupId, userId);
+    sendSuccess(res, null, 'Grupo eliminado con éxito.');
+  } catch (error) {
+    next(error);
+  }
+}

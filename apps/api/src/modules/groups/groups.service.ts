@@ -260,3 +260,44 @@ export async function getGroupLeaderboard(groupId: number, userId: number) {
     return b.aciertosGanador - a.aciertosGanador;
   });
 }
+
+/**
+ * Elimina un grupo si el solicitante es el creador y es el único miembro.
+ */
+export async function deleteGroup(groupId: number, userId: number) {
+  const group = await db.group.findUnique({
+    where: { id: groupId },
+    include: {
+      _count: {
+        select: { members: true },
+      },
+    },
+  });
+
+  if (!group) {
+    const error = new Error('El grupo solicitado no existe.') as any;
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 1. Verificar que sea el creador del grupo
+  if (group.creatorId !== userId) {
+    const error = new Error('No tienes permisos para eliminar este grupo (solo el creador puede hacerlo).') as any;
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 2. Verificar que no haya otros miembros unidos
+  if (group._count.members > 1) {
+    const error = new Error('No puedes eliminar el grupo porque ya tiene otros participantes unidos.') as any;
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 3. Eliminar el grupo (Prisma Cascade limpia las membresías e invitaciones solas)
+  await db.group.delete({
+    where: { id: groupId },
+  });
+
+  return { id: groupId };
+}
