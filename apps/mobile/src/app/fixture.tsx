@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Colors, Spacing } from '../constants/theme';
 import { api } from '../services/api';
+import { useFocusEffect } from 'expo-router';
 // Importamos los tipos unificados desde el paquete compartido del monorepo
 import { Match, MatchStage, MatchStatus } from '@prode/shared';
 
@@ -43,9 +44,11 @@ export default function FixtureScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchMatches();
-  }, [selectedStage]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchMatches();
+    }, [selectedStage])
+  );
 
   const renderMatchCard = ({ item }: { item: Match }) => {
     const dateParsed = new Date(item.matchDate);

@@ -1,14 +1,53 @@
-import React from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { Colors, Spacing } from '../constants/theme';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
+import { api } from '../services/api';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
+
+  const [groupsCount, setGroupsCount] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchDashboardData = async () => {
+        if (!user) return;
+        try {
+          setLoading(true);
+          const groupsRes = await api.get('/groups');
+          const userGroups = groupsRes.data.data;
+          setGroupsCount(userGroups.length);
+          let pointsSum = 0;
+          await Promise.all(
+            userGroups.map(async (group: any) => {
+              try {
+                const lbRes = await api.get(`/groups/${group.id}/leaderboard`);
+                const myEntry = lbRes.data.data.find((e: any) => e.userId === user.id);
+                if (myEntry) {
+                  pointsSum += myEntry.puntosTotales;
+                }
+              } catch (err) {
+                console.error(`Error al obtener puntos del grupo ${group.id}:`, err);
+              }
+            })
+          );
+          setTotalPoints(pointsSum);
+        } catch (error) {
+          console.error('Error al cargar datos del dashboard:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchDashboardData();
+    }, [user])
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -24,16 +63,22 @@ export default function HomeScreen() {
         </ThemedText>
       </View>
 
-      {/* Tarjeta de Resumen Rápido */}
+      {/* Tarjeta de Resumen Rápido Dinámica */}
       <ThemedView type="backgroundElement" style={styles.statsCard}>
-        <View style={styles.statBox}>
-          <ThemedText type="title" style={styles.statValue}>0</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">Puntos</ThemedText>
-        </View>
-        <View style={[styles.statBox, styles.statBorder]}>
-          <ThemedText type="title" style={styles.statValue}>0</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">Mis Grupos</ThemedText>
-        </View>
+        {loading ? (
+          <ActivityIndicator size="small" color={Colors.light.accentSecondary} style={{ flex: 1 }} />
+        ) : (
+          <>
+            <View style={styles.statBox}>
+              <ThemedText type="title" style={styles.statValue}>{totalPoints}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">Puntos Totales</ThemedText>
+            </View>
+            <View style={[styles.statBox, styles.statBorder]}>
+              <ThemedText type="title" style={styles.statValue}>{groupsCount}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">Mis Grupos</ThemedText>
+            </View>
+          </>
+        )}
       </ThemedView>
 
       {/* Accesos Rápidos */}
@@ -90,6 +135,8 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     borderWidth: 1,
     borderColor: Colors.light.border,
+    minHeight: 100,
+    alignItems: 'center',
   },
   statBox: {
     flex: 1,
