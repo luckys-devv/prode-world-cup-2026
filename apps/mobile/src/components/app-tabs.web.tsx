@@ -36,6 +36,9 @@ export default function AppTabs() {
           <TabTrigger name="profile" href="/profile" asChild>
             <TabButton>Perfil</TabButton>
           </TabTrigger>
+          {/* ─── PESTAÑAS INTERNAS OCULTAS ─── */}
+          <TabTrigger name="group/create" href="/group/create" style={{ display: 'none' }} />
+          <TabTrigger name="group/[id]" href="/group/[id]" style={{ display: 'none' }} />
         </CustomTabList>
       </TabList>
     </Tabs>
