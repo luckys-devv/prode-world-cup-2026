@@ -44,10 +44,12 @@ export const Fonts = Platform.select({
   ios: {
     sans: 'Inter',
     display: 'Outfit',
+    mono: 'Courier New',
   },
   default: {
     sans: 'sans-serif',
     display: 'sans-serif-medium',
+    mono: 'monospace',
   },
 });
 
