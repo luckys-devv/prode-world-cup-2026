@@ -8,6 +8,7 @@ const router: Router = Router();
 router.use(authMiddleware);
 
 router.get('/', matchesController.listMatches);
+router.get('/teams', matchesController.listTeams);
 router.get('/:id', matchesController.getMatchDetail);
 
 export default router;

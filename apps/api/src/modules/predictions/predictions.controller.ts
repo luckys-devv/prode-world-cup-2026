@@ -58,3 +58,42 @@ export async function getMatchPredictionsHandler(req: Request, res: Response, ne
     next(error);
   }
 }
+
+/**
+ * Crea o actualiza la predicción del campeón para el usuario.
+ * POST /api/predictions/champion
+ */
+export async function createOrUpdateChampionPredictionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { groupId, teamId } = req.body;
+
+    if (!groupId || !teamId) {
+      return sendBadRequest(res, 'Los campos groupId y teamId son obligatorios.');
+    }
+
+    const userId = req.user!.userId;
+    const prediction = await predictionsService.createOrUpdateChampionPrediction(userId, Number(groupId), Number(teamId));
+    sendSuccess(res, prediction, 'Predicción de campeón guardada con éxito.');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Obtiene la predicción del campeón de un usuario en un grupo.
+ * GET /api/predictions/group/:groupId/champion
+ */
+export async function getChampionPredictionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const groupId = parseInt(req.params.groupId as string, 10);
+    if (isNaN(groupId)) {
+      return sendBadRequest(res, 'El ID de grupo no es válido.');
+    }
+
+    const userId = req.user!.userId;
+    const prediction = await predictionsService.getChampionPrediction(userId, groupId);
+    sendSuccess(res, prediction, 'Predicción de campeón obtenida con éxito.');
+  } catch (error) {
+    next(error);
+  }
+}

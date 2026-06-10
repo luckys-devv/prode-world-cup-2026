@@ -52,3 +52,14 @@ export async function getMatchById(id: number) {
     },
   });
 }
+
+/**
+ * Obtiene el listado de todos los equipos del Mundial en orden alfabético.
+ */
+export async function getAllTeams() {
+  return await db.team.findMany({
+    orderBy: {
+      name: 'asc',
+    },
+  });
+}

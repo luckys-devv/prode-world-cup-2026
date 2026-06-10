@@ -149,3 +149,59 @@ export async function getMatchPredictionsInGroup(groupId: number, matchId: numbe
   // Si ya empezó o está permitido verlos, devolvemos los datos reales completos
   return allPredictions;
 }
+
+/**
+ * Crea o actualiza la predicción del campeón del usuario en un grupo.
+ */
+export async function createOrUpdateChampionPrediction(userId: number, groupId: number, teamId: number) {
+  // 1. Validar que el usuario sea miembro del grupo
+  const membership = await db.groupMember.findUnique({
+    where: { groupId_userId: { groupId, userId } },
+  });
+
+  if (!membership) {
+    const error = new Error('No tienes permiso para hacer predicciones en este grupo (no eres miembro).') as any;
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 2. Validar que el mundial no haya comenzado (bloqueo por horario del 1° partido)
+  const earliestMatch = await db.match.findFirst({
+    orderBy: { matchDate: 'asc' },
+  });
+
+  if (earliestMatch && new Date() >= new Date(earliestMatch.matchDate)) {
+    const error = new Error('No puedes elegir o cambiar el campeón una vez que el mundial ha comenzado.') as any;
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 3. Registrar o actualizar la predicción
+  return await db.championPrediction.upsert({
+    where: {
+      userId_groupId: { userId, groupId },
+    },
+    update: {
+      teamId,
+    },
+    create: {
+      userId,
+      groupId,
+      teamId,
+    },
+  });
+}
+
+/**
+ * Obtiene la predicción del campeón del usuario actual en un grupo.
+ */
+export async function getChampionPrediction(userId: number, groupId: number) {
+  return await db.championPrediction.findUnique({
+    where: {
+      userId_groupId: { userId, groupId },
+    },
+    include: {
+      team: true,
+    },
+  });
+}

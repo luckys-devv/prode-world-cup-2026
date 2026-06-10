@@ -47,3 +47,16 @@ export async function getMatchDetail(req: Request, res: Response, next: NextFunc
     next(error);
   }
 }
+
+/**
+ * Endpoint para obtener todos los equipos del Mundial.
+ * GET /api/matches/teams
+ */
+export async function listTeams(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const teams = await matchesService.getAllTeams();
+    sendSuccess(res, teams, 'Equipos obtenidos con éxito.');
+  } catch (error) {
+    next(error);
+  }
+}
