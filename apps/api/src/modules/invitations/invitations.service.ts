@@ -129,10 +129,10 @@ export async function inviteUser(senderId: number, input: InviteByEmailInput) {
 }
 
 /**
- * Lista las invitaciones pendientes del usuario actual.
+ * Lista las invitaciones pendientes del usuario actual (inbox) aplanadas.
  */
 export async function getPendingInvitations(userId: number, userEmail: string) {
-  return await db.invitation.findMany({
+  const invitations = await db.invitation.findMany({
     where: {
       OR: [
         { receiverId: userId },
@@ -155,8 +155,17 @@ export async function getPendingInvitations(userId: number, userEmail: string) {
       },
     },
   });
-}
 
+  return invitations.map((inv) => ({
+    id: inv.id,
+    groupId: inv.groupId,
+    groupName: inv.group.name,
+    senderName: inv.sender.displayName,
+    email: inv.email,
+    status: inv.status,
+    createdAt: inv.createdAt.toISOString(),
+  }));
+}
 /**
  * Acepta una invitación, marcando su estado como aceptada y sumando al usuario al grupo.
  */
