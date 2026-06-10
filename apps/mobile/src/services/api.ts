@@ -8,10 +8,17 @@ import { storage } from '../utils/storage';
 // - Usamos 10.0.2.2 en emuladores de Android (apunta a la PC host).
 // - Usamos localhost en iOS Simulator y Web.
 // - En un celular físico (Expo Go), deberás poner la IP local de tu PC (ej: http://192.168.1.150:3001/api).
-export const API_URL = Platform.select({
-  android: 'http://10.0.2.2:3001/api',
-  default: 'http://localhost:3001/api',
-});
+//export const API_URL = Platform.select({
+//  android: 'http://10.0.2.2:3001/api',
+//  default: 'http://localhost:3001/api',
+//});
+
+export const API_URL = __DEV__
+  ? Platform.select({
+    android: 'http://10.0.2.2:3001/api',
+    default: 'http://localhost:3001/api',
+  })
+  : 'https://prode-world-cup-2026-production.up.railway.app/api';
 
 export const api = axios.create({
   baseURL: API_URL,
