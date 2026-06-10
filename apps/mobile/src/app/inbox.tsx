@@ -12,13 +12,14 @@ import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { api } from '../services/api';
 import { useFocusEffect } from 'expo-router';
-// Importamos el tipo unificado del package compartido
 import { Invitation } from '@prode/shared';
+import { useTheme } from '../hooks/use-theme';
 
 export default function InboxScreen() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionId, setActionId] = useState<number | null>(null); // Para mostrar loading individual en un botón
+  const [actionId, setActionId] = useState<number | null>(null);
+  const colors = useTheme();
 
   const fetchInvitations = async () => {
     try {
@@ -42,16 +43,7 @@ export default function InboxScreen() {
     try {
       setActionId(id);
       const endpoint = `/invitations/${id}/${action}`;
-      const response = await api.put(endpoint);
-
-      Alert.alert(
-        '¡Éxito!',
-        action === 'accept'
-          ? 'Te has unido al grupo exitosamente.'
-          : 'Invitación rechazada.'
-      );
-
-      // Filtramos la invitación resuelta para removerla de la lista
+      await api.put(endpoint);
       setInvitations((prev) => prev.filter((inv) => inv.id !== id));
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Ocurrió un error al procesar la invitación.';
@@ -62,7 +54,10 @@ export default function InboxScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.header}>
         <ThemedText type="subtitle" style={styles.title}>Bandeja de Entrada 📬</ThemedText>
         <ThemedText themeColor="textSecondary" type="small">
@@ -71,18 +66,22 @@ export default function InboxScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={Colors.light.accentPrimary} style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.loader} />
       ) : invitations.length === 0 ? (
-        <ThemedView type="backgroundElement" style={styles.emptyCard}>
+        <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
           <ThemedText style={styles.emptyText} themeColor="textSecondary">
             No tenés invitaciones pendientes por el momento.
           </ThemedText>
         </ThemedView>
       ) : (
         invitations.map((inv) => (
-          <ThemedView key={inv.id} type="backgroundElement" style={styles.invitationCard}>
+          <ThemedView
+            key={inv.id}
+            type="backgroundElement"
+            style={[styles.invitationCard, { borderColor: colors.border }]}
+          >
             <View style={styles.cardInfo}>
-              <ThemedText type="smallBold" style={styles.groupName}>
+              <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
                 {inv.groupName}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
@@ -124,7 +123,6 @@ export default function InboxScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   content: {
     padding: Spacing.four,
@@ -148,7 +146,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   emptyText: {
     textAlign: 'center',
@@ -157,7 +154,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     gap: Spacing.three,
   },
   cardInfo: {
@@ -165,7 +161,6 @@ const styles = StyleSheet.create({
   },
   groupName: {
     fontSize: 16,
-    color: '#FFFFFF',
   },
   dateText: {
     fontSize: 11,

@@ -1,15 +1,22 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
+import { useThemeStore } from '../stores/themeStore';
 import { Colors, Spacing } from '../constants/theme';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
+import { useTheme } from '../hooks/use-theme';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
+  const colors = useTheme();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.header}>
         <ThemedText type="subtitle" style={styles.title}>Mi Perfil 👤</ThemedText>
         <ThemedText themeColor="textSecondary" type="small">
@@ -17,14 +24,28 @@ export default function ProfileScreen() {
         </ThemedText>
       </View>
 
-      <ThemedView type="backgroundElement" style={styles.profileCard}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.profileCard, { borderColor: colors.border }]}
+      >
         <View style={styles.row}>
           <ThemedText type="smallBold" themeColor="textSecondary">Nombre:</ThemedText>
           <ThemedText type="small">{user?.displayName || 'No configurado'}</ThemedText>
         </View>
-        <View style={[styles.row, styles.borderRow]}>
+        <View style={[styles.row, styles.borderRow, { borderColor: colors.border }]}>
           <ThemedText type="smallBold" themeColor="textSecondary">Email:</ThemedText>
           <ThemedText type="small">{user?.email}</ThemedText>
+        </View>
+
+        {/* INTERRUPTOR PREMIUM CLARO / OSCURO */}
+        <View style={[styles.row, styles.borderRow, { borderColor: colors.border, alignItems: 'center' }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary">Modo Oscuro:</ThemedText>
+          <Switch
+            value={theme === 'dark'}
+            onValueChange={toggleTheme}
+            trackColor={{ false: '#767577', true: '#6C5CE7' }}
+            thumbColor={theme === 'dark' ? '#00D2FF' : '#f4f3f4'}
+          />
         </View>
       </ThemedView>
 
@@ -38,7 +59,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   content: {
     padding: Spacing.four,
@@ -57,7 +77,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   row: {
     flexDirection: 'row',
@@ -66,7 +85,6 @@ const styles = StyleSheet.create({
   },
   borderRow: {
     borderTopWidth: 1,
-    borderColor: Colors.light.border,
     marginTop: Spacing.one,
     paddingTop: Spacing.three,
   },

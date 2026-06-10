@@ -9,13 +9,13 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-// IMPORTANTE: Importamos Link aquí
 import { useRouter, Link, useFocusEffect } from 'expo-router';
 import { Colors, Spacing } from '../constants/theme';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { api } from '../services/api';
 import { Group } from '@prode/shared';
+import { useTheme } from '../hooks/use-theme';
 
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === 'web') {
@@ -31,6 +31,7 @@ export default function GroupsScreen() {
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
   const router = useRouter();
+  const colors = useTheme();
 
   const fetchGroups = async () => {
     try {
@@ -58,8 +59,7 @@ export default function GroupsScreen() {
 
     try {
       setJoining(true);
-      const response = await api.post(`/groups/join/${joinCode.trim().toUpperCase()}`);
-      showAlert('¡Éxito!', response.data.message || 'Te uniste al grupo con éxito.');
+      await api.post(`/groups/join/${joinCode.trim().toUpperCase()}`);
       setJoinCode('');
       fetchGroups();
     } catch (error: any) {
@@ -71,7 +71,10 @@ export default function GroupsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.header}>
         <ThemedText type="subtitle" style={styles.title}>Mis Grupos 👥</ThemedText>
         <ThemedText themeColor="textSecondary" type="small">
@@ -79,16 +82,23 @@ export default function GroupsScreen() {
         </ThemedText>
       </View>
 
-      <ThemedView type="backgroundElement" style={styles.joinCard}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.joinCard, { borderColor: colors.border }]}
+      >
         <ThemedText type="smallBold" style={styles.joinTitle}>Unirse con código</ThemedText>
         <View style={styles.joinInputRow}>
           <TextInput
             placeholder="Ej: ABCDEF"
-            placeholderTextColor="#8892B0"
+            placeholderTextColor={colors.textSecondary}
             value={joinCode}
             onChangeText={setJoinCode}
             autoCapitalize="characters"
-            style={styles.input}
+            style={[styles.input, {
+              backgroundColor: colors.backgroundSelected,
+              borderColor: colors.border,
+              color: colors.text
+            }]}
           />
           <TouchableOpacity
             style={[styles.joinButton, joining && styles.buttonDisabled]}
@@ -106,7 +116,6 @@ export default function GroupsScreen() {
 
       <View style={styles.actionRow}>
         <ThemedText type="smallBold" themeColor="textSecondary">MIS SALAS</ThemedText>
-        {/* CORRECCIÓN: Envolvemos el botón con Link */}
         <Link href="/group/create" asChild>
           <TouchableOpacity style={styles.createButton}>
             <ThemedText type="smallBold" style={styles.createButtonText}>+ Crear Grupo</ThemedText>
@@ -115,9 +124,9 @@ export default function GroupsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={Colors.light.accentPrimary} style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.loader} />
       ) : groups.length === 0 ? (
-        <ThemedView type="backgroundElement" style={styles.emptyCard}>
+        <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
           <ThemedText style={styles.emptyText} themeColor="textSecondary">
             Todavía no pertenecés a ningún grupo.{'\n'}
             ¡Creá uno o unile usando un código!
@@ -126,12 +135,19 @@ export default function GroupsScreen() {
       ) : (
         groups.map((group) => (
           <Link href={`/group/${group.id}`} key={group.id} asChild>
-            <TouchableOpacity style={styles.groupCard}>
+            <TouchableOpacity
+              style={StyleSheet.flatten([styles.groupCard, {
+                backgroundColor: colors.backgroundElement,
+                borderColor: colors.border
+              }])}
+            >
               <View style={styles.groupCardHeader}>
-                <ThemedText type="smallBold" style={styles.groupName}>{group.name}</ThemedText>
-                <View style={styles.membersBadge}>
+                <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
+                  {group.name}
+                </ThemedText>
+                <View style={[styles.membersBadge, { backgroundColor: 'rgba(0, 210, 255, 0.08)' }]}>
                   <ThemedText type="code" style={styles.membersBadgeText}>
-                    👤 {group.memberCount} miemb.
+                    👤 {group.memberCount} amigotes
                   </ThemedText>
                 </View>
               </View>
@@ -140,7 +156,7 @@ export default function GroupsScreen() {
                   🏆 Premio: {group.prizeDescription}
                 </ThemedText>
               )}
-              <View style={styles.codeFooter}>
+              <View style={[styles.codeFooter, { borderColor: colors.border }]}>
                 <ThemedText type="code" themeColor="accentSecondary">
                   Código: {group.inviteCode}
                 </ThemedText>
@@ -148,16 +164,14 @@ export default function GroupsScreen() {
             </TouchableOpacity>
           </Link>
         ))
-      )
-      }
-    </ScrollView >
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   content: {
     padding: Spacing.four,
@@ -176,7 +190,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   joinTitle: {
     marginBottom: Spacing.two,
@@ -187,13 +200,10 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundSelected,
-    borderColor: Colors.light.border,
     borderWidth: 1,
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
     height: 44,
-    color: '#FFFFFF',
     fontSize: 15,
   },
   joinButton: {
@@ -223,7 +233,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
-    cursor: 'pointer',
   },
   createButtonText: {
     color: Colors.light.accentPrimary,
@@ -237,7 +246,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.light.border,
     borderStyle: 'dashed',
   },
   emptyText: {
@@ -245,13 +253,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   groupCard: {
-    backgroundColor: Colors.light.backgroundElement,
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     gap: Spacing.two,
-    cursor: 'pointer',
   },
   groupCardHeader: {
     flexDirection: 'row',
@@ -260,10 +265,8 @@ const styles = StyleSheet.create({
   },
   groupName: {
     fontSize: 16,
-    color: '#FFFFFF',
   },
   membersBadge: {
-    backgroundColor: 'rgba(0, 210, 255, 0.1)',
     borderRadius: Spacing.one,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.half,
@@ -277,7 +280,6 @@ const styles = StyleSheet.create({
   },
   codeFooter: {
     borderTopWidth: 1,
-    borderColor: 'rgba(42, 49, 84, 0.4)',
     paddingTop: Spacing.two,
     marginTop: Spacing.one,
   },

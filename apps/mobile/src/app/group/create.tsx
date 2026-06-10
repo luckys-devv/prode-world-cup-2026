@@ -8,22 +8,31 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { api } from '../../services/api';
-// Reutilizamos el tipo del monorepo
 import { ScoringConfig } from '@prode/shared';
+import { useTheme } from '../../hooks/use-theme';
+
+const showAlert = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
 
 export default function CreateGroupScreen() {
   const [name, setName] = useState('');
   const [prizeDescription, setPrizeDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const colors = useTheme();
 
-  // Configuración de puntaje inicializada según los tipos compartidos
   const [scoringConfig, setScoringConfig] = useState<ScoringConfig>({
     winnerPrediction: { enabled: true, points: 1 },
     exactScore: { enabled: true, points: 3 },
@@ -55,7 +64,7 @@ export default function CreateGroupScreen() {
 
   const handleCreateGroup = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Por favor, ingresá el nombre del grupo.');
+      showAlert('Error', 'Por favor, ingresá el nombre del grupo.');
       return;
     }
 
@@ -68,32 +77,33 @@ export default function CreateGroupScreen() {
       });
 
       const newGroup = response.data.data;
-      Alert.alert('¡Grupo Creado!', 'Tu grupo de prode se creó exitosamente.');
-
-      // Navegamos al detalle del grupo recién creado
+      // Navegamos silenciosamente al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Ocurrió un error al crear el grupo.';
-      Alert.alert('Error', errorMsg);
+      showAlert('Error', errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ThemedText themeColor="accentSecondary" type="smallBold">← Volver</ThemedText>
         </TouchableOpacity>
-        <ThemedText type="subtitle" style={styles.title}>Crear Grupo 🏆</ThemedText>
+        <ThemedText type="subtitle" style={[styles.title, { color: colors.text }]}>Crear Grupo 🏆</ThemedText>
         <ThemedText themeColor="textSecondary" type="small">
           Configurá la sala de juego y sus reglas.
         </ThemedText>
       </View>
 
       {/* Ajustes Generales */}
-      <ThemedView type="backgroundElement" style={styles.card}>
+      <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
         <ThemedText type="smallBold" style={styles.sectionTitle}>Ajustes Generales</ThemedText>
 
         <View style={styles.inputGroup}>
@@ -101,9 +111,13 @@ export default function CreateGroupScreen() {
             Nombre del Grupo
           </ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, {
+              backgroundColor: colors.backgroundSelected,
+              borderColor: colors.border,
+              color: colors.text
+            }]}
             placeholder="Ej: Los Pibes del Laburo"
-            placeholderTextColor="#555B77"
+            placeholderTextColor={colors.textSecondary}
             value={name}
             onChangeText={setName}
           />
@@ -114,9 +128,13 @@ export default function CreateGroupScreen() {
             Premio para el Ganador (Opcional)
           </ThemedText>
           <TextInput
-            style={styles.input}
+            style={[styles.input, {
+              backgroundColor: colors.backgroundSelected,
+              borderColor: colors.border,
+              color: colors.text
+            }]}
             placeholder="Ej: Un asado / Fernet de oro"
-            placeholderTextColor="#555B77"
+            placeholderTextColor={colors.textSecondary}
             value={prizeDescription}
             onChangeText={setPrizeDescription}
           />
@@ -124,7 +142,7 @@ export default function CreateGroupScreen() {
       </ThemedView>
 
       {/* Reglas de Puntaje */}
-      <ThemedView type="backgroundElement" style={styles.card}>
+      <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
         <ThemedText type="smallBold" style={styles.sectionTitle}>Reglas de Puntaje</ThemedText>
 
         {/* 1. Ganador / Empate */}
@@ -138,7 +156,11 @@ export default function CreateGroupScreen() {
           <View style={styles.ruleControls}>
             {scoringConfig.winnerPrediction.enabled && (
               <TextInput
-                style={styles.pointsInput}
+                style={[styles.pointsInput, {
+                  backgroundColor: colors.backgroundSelected,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
                 keyboardType="number-pad"
                 value={String(scoringConfig.winnerPrediction.points)}
                 onChangeText={(val) => updatePoints('winnerPrediction', val)}
@@ -147,13 +169,13 @@ export default function CreateGroupScreen() {
             <Switch
               value={scoringConfig.winnerPrediction.enabled}
               onValueChange={() => toggleConfig('winnerPrediction')}
-              trackColor={{ false: '#1C2344', true: '#6C5CE7' }}
+              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
             />
           </View>
         </View>
 
         {/* 2. Resultado Exacto */}
-        <View style={[styles.ruleRow, styles.borderRow]}>
+        <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
           <View style={styles.ruleInfo}>
             <ThemedText type="smallBold">Acertar Score Exacto</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
@@ -163,7 +185,11 @@ export default function CreateGroupScreen() {
           <View style={styles.ruleControls}>
             {scoringConfig.exactScore.enabled && (
               <TextInput
-                style={styles.pointsInput}
+                style={[styles.pointsInput, {
+                  backgroundColor: colors.backgroundSelected,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
                 keyboardType="number-pad"
                 value={String(scoringConfig.exactScore.points)}
                 onChangeText={(val) => updatePoints('exactScore', val)}
@@ -172,13 +198,13 @@ export default function CreateGroupScreen() {
             <Switch
               value={scoringConfig.exactScore.enabled}
               onValueChange={() => toggleConfig('exactScore')}
-              trackColor={{ false: '#1C2344', true: '#6C5CE7' }}
+              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
             />
           </View>
         </View>
 
         {/* 3. Campeón */}
-        <View style={[styles.ruleRow, styles.borderRow]}>
+        <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
           <View style={styles.ruleInfo}>
             <ThemedText type="smallBold">Acertar Campeón del Mundo</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
@@ -188,7 +214,11 @@ export default function CreateGroupScreen() {
           <View style={styles.ruleControls}>
             {scoringConfig.champion.enabled && (
               <TextInput
-                style={styles.pointsInput}
+                style={[styles.pointsInput, {
+                  backgroundColor: colors.backgroundSelected,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
                 keyboardType="number-pad"
                 value={String(scoringConfig.champion.points)}
                 onChangeText={(val) => updatePoints('champion', val)}
@@ -197,13 +227,13 @@ export default function CreateGroupScreen() {
             <Switch
               value={scoringConfig.champion.enabled}
               onValueChange={() => toggleConfig('champion')}
-              trackColor={{ false: '#1C2344', true: '#6C5CE7' }}
+              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
             />
           </View>
         </View>
 
         {/* 4. Privacidad */}
-        <View style={[styles.ruleRow, styles.borderRow]}>
+        <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
           <View style={styles.ruleInfo}>
             <ThemedText type="smallBold">Ver pronósticos antes de empezar</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
@@ -215,7 +245,7 @@ export default function CreateGroupScreen() {
             onValueChange={(val) =>
               setScoringConfig((prev) => ({ ...prev, showPredictionsBeforeStart: val }))
             }
-            trackColor={{ false: '#1C2344', true: '#6C5CE7' }}
+            trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
           />
         </View>
       </ThemedView>
@@ -238,7 +268,6 @@ export default function CreateGroupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   content: {
     padding: Spacing.four,
@@ -260,7 +289,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     gap: Spacing.three,
   },
   sectionTitle: {
@@ -277,13 +305,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   input: {
-    backgroundColor: Colors.light.backgroundSelected,
-    borderColor: Colors.light.border,
     borderWidth: 1,
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
     height: 44,
-    color: '#FFFFFF',
     fontSize: 15,
   },
   ruleRow: {
@@ -294,7 +319,6 @@ const styles = StyleSheet.create({
   },
   borderRow: {
     borderTopWidth: 1,
-    borderColor: 'rgba(42, 49, 84, 0.4)',
     paddingTop: Spacing.three,
     marginTop: Spacing.one,
   },
@@ -308,14 +332,11 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   pointsInput: {
-    backgroundColor: Colors.light.backgroundSelected,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     borderRadius: Spacing.one,
     width: 45,
     height: 35,
     textAlign: 'center',
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },

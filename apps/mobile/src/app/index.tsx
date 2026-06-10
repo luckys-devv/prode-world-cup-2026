@@ -6,10 +6,12 @@ import { Colors, Spacing } from '../constants/theme';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { api } from '../services/api';
+import { useTheme } from '../hooks/use-theme';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const colors = useTheme();
 
   const [groupsCount, setGroupsCount] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
@@ -50,7 +52,10 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.welcomeHeader}>
         <ThemedText type="smallBold" themeColor="accentSecondary">
           PANEL PRINCIPAL
@@ -64,16 +69,19 @@ export default function HomeScreen() {
       </View>
 
       {/* Tarjeta de Resumen Rápido Dinámica */}
-      <ThemedView type="backgroundElement" style={styles.statsCard}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.statsCard, { borderColor: colors.border }]}
+      >
         {loading ? (
-          <ActivityIndicator size="small" color={Colors.light.accentSecondary} style={{ flex: 1 }} />
+          <ActivityIndicator size="small" color={colors.accentSecondary} style={{ flex: 1 }} />
         ) : (
           <>
             <View style={styles.statBox}>
               <ThemedText type="title" style={styles.statValue}>{totalPoints}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">Puntos Totales</ThemedText>
             </View>
-            <View style={[styles.statBox, styles.statBorder]}>
+            <View style={[styles.statBox, styles.statBorder, { borderColor: colors.border }]}>
               <ThemedText type="title" style={styles.statValue}>{groupsCount}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">Mis Grupos</ThemedText>
             </View>
@@ -86,21 +94,30 @@ export default function HomeScreen() {
         ACCESOS RÁPIDOS
       </ThemedText>
 
-      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/fixture')}>
+      <TouchableOpacity
+        style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+        onPress={() => router.push('/fixture')}
+      >
         <View>
           <ThemedText type="smallBold" themeColor="text">📅 Ver Fixture Completo</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">Revisá los partidos y poné tus pronósticos</ThemedText>
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/groups')}>
+      <TouchableOpacity
+        style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+        onPress={() => router.push('/groups')}
+      >
         <View>
           <ThemedText type="smallBold" themeColor="text">👥 Mis Grupos con Amigos</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">Creá un grupo o unite a uno existente</ThemedText>
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/inbox')}>
+      <TouchableOpacity
+        style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+        onPress={() => router.push('/inbox')}
+      >
         <View>
           <ThemedText type="smallBold" themeColor="text">📬 Invitaciones Recibidas</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">Unite a las salas a las que fuiste invitado</ThemedText>
@@ -113,7 +130,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   content: {
     padding: Spacing.four,
@@ -134,7 +150,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     minHeight: 100,
     alignItems: 'center',
   },
@@ -145,7 +160,6 @@ const styles = StyleSheet.create({
   },
   statBorder: {
     borderLeftWidth: 1,
-    borderColor: Colors.light.border,
   },
   statValue: {
     fontSize: 32,
@@ -156,10 +170,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   actionCard: {
-    backgroundColor: Colors.light.backgroundElement,
     padding: Spacing.four,
     borderRadius: Spacing.three,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
 });

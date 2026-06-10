@@ -14,10 +14,9 @@ import { es } from 'date-fns/locale';
 import { Colors, Spacing } from '../constants/theme';
 import { api } from '../services/api';
 import { useFocusEffect } from 'expo-router';
-// Importamos los tipos unificados desde el paquete compartido del monorepo
 import { Match, MatchStage, MatchStatus } from '@prode/shared';
+import { useTheme } from '../hooks/use-theme';
 
-// Mapeo de etapas de la API de fútbol a español amigable
 const STAGES = [
   { key: MatchStage.GROUP_STAGE, label: 'Grupos' },
   { key: MatchStage.LAST_32, label: '16avos' },
@@ -31,6 +30,7 @@ export default function FixtureScreen() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStage, setSelectedStage] = useState<MatchStage>(MatchStage.GROUP_STAGE);
+  const colors = useTheme();
 
   const fetchMatches = async () => {
     try {
@@ -54,23 +54,21 @@ export default function FixtureScreen() {
     const dateParsed = new Date(item.matchDate);
     const dateFormatted = format(dateParsed, "EEEE d 'de' MMMM - HH:mm 'hs'", { locale: es });
 
-    // Determinamos si el partido ya empezó o finalizó
     const hasStarted =
       item.status === MatchStatus.IN_PLAY ||
       item.status === MatchStatus.PAUSED ||
       item.status === MatchStatus.FINISHED;
 
-    // Se puede pronosticar si aún está programado o confirmado con horario
     const canPredict =
       item.status === MatchStatus.SCHEDULED ||
       item.status === MatchStatus.TIMED;
 
     return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.dateText}>{dateFormatted}</Text>
+      <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+        <View style={[styles.cardHeader, { borderColor: colors.border }]}>
+          <Text style={[styles.dateText, { color: colors.accentSecondary }]}>{dateFormatted}</Text>
           {item.groupName && (
-            <Text style={styles.groupText}>
+            <Text style={[styles.groupText, { color: colors.textSecondary }]}>
               {item.groupName.replace('_', ' ')}
             </Text>
           )}
@@ -82,9 +80,9 @@ export default function FixtureScreen() {
             {item.homeTeam.crestUrl ? (
               <Image source={{ uri: item.homeTeam.crestUrl }} style={styles.flag} />
             ) : (
-              <View style={[styles.flag, styles.flagPlaceholder]} />
+              <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
             )}
-            <Text style={styles.teamName} numberOfLines={1}>
+            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
               {item.homeTeam.shortName}
             </Text>
           </View>
@@ -93,12 +91,12 @@ export default function FixtureScreen() {
           <View style={styles.scoreContainer}>
             {hasStarted ? (
               <View style={styles.scoreRow}>
-                <Text style={styles.scoreText}>{item.homeScore}</Text>
-                <Text style={styles.scoreDivider}>-</Text>
-                <Text style={styles.scoreText}>{item.awayScore}</Text>
+                <Text style={[styles.scoreText, { color: colors.text }]}>{item.homeScore}</Text>
+                <Text style={[styles.scoreDivider, { color: colors.textSecondary }]}>-</Text>
+                <Text style={[styles.scoreText, { color: colors.text }]}>{item.awayScore}</Text>
               </View>
             ) : (
-              <Text style={styles.versusText}>VS</Text>
+              <Text style={[styles.versusText, { color: colors.textSecondary }]}>VS</Text>
             )}
 
             {item.status === MatchStatus.IN_PLAY && (
@@ -118,17 +116,17 @@ export default function FixtureScreen() {
             {item.awayTeam.crestUrl ? (
               <Image source={{ uri: item.awayTeam.crestUrl }} style={styles.flag} />
             ) : (
-              <View style={[styles.flag, styles.flagPlaceholder]} />
+              <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
             )}
-            <Text style={styles.teamName} numberOfLines={1}>
+            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
               {item.awayTeam.shortName}
             </Text>
           </View>
         </View>
 
         {canPredict && (
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Pronosticar</Text>
+          <TouchableOpacity style={[styles.actionButton, { borderColor: colors.accentPrimary }]}>
+            <Text style={[styles.actionButtonText, { color: colors.accentPrimary }]}>Pronosticar</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -136,18 +134,26 @@ export default function FixtureScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tabsContainer}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.tabsContainer, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
           {STAGES.map((stage) => {
             const isActive = selectedStage === stage.key;
             return (
               <TouchableOpacity
                 key={stage.key}
-                style={[styles.tabButton, isActive && styles.tabButtonActive]}
+                style={[
+                  styles.tabButton,
+                  { backgroundColor: colors.backgroundElement, borderColor: colors.border },
+                  isActive && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }
+                ]}
                 onPress={() => setSelectedStage(stage.key)}
               >
-                <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
+                <Text style={[
+                  styles.tabButtonText,
+                  { color: colors.textSecondary },
+                  isActive && { color: '#FFFFFF' }
+                ]}>
                   {stage.label}
                 </Text>
               </TouchableOpacity>
@@ -158,12 +164,14 @@ export default function FixtureScreen() {
 
       {loading ? (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={Colors.light.accentPrimary} />
-          <Text style={styles.loaderText}>Cargando fixture...</Text>
+          <ActivityIndicator size="large" color={colors.accentPrimary} />
+          <Text style={[styles.loaderText, { color: colors.textSecondary }]}>Cargando fixture...</Text>
         </View>
       ) : matches.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No hay partidos programados para esta fase.</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            No hay partidos programados para esta fase.
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -181,12 +189,9 @@ export default function FixtureScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   tabsContainer: {
-    backgroundColor: Colors.light.backgroundSelected,
     borderBottomWidth: 1,
-    borderColor: Colors.light.border,
     paddingVertical: Spacing.three,
   },
   tabsScroll: {
@@ -197,21 +202,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
     borderRadius: Spacing.four,
-    backgroundColor: Colors.light.backgroundElement,
     borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  tabButtonActive: {
-    backgroundColor: Colors.light.accentPrimary,
-    borderColor: Colors.light.accentPrimary,
   },
   tabButtonText: {
-    color: Colors.light.textSecondary,
     fontSize: 14,
     fontWeight: '600',
-  },
-  tabButtonTextActive: {
-    color: '#FFFFFF',
   },
   loaderContainer: {
     flex: 1,
@@ -219,7 +214,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loaderText: {
-    color: Colors.light.textSecondary,
     marginTop: Spacing.three,
     fontSize: 15,
   },
@@ -230,7 +224,6 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   emptyText: {
-    color: Colors.light.textSecondary,
     fontSize: 16,
     textAlign: 'center',
   },
@@ -239,11 +232,9 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   card: {
-    backgroundColor: Colors.light.backgroundElement,
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -254,13 +245,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
   },
   dateText: {
-    color: Colors.light.accentSecondary,
     fontSize: 12,
     fontWeight: 'bold',
     textTransform: 'capitalize',
   },
   groupText: {
-    color: Colors.light.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -283,10 +272,8 @@ const styles = StyleSheet.create({
   },
   flagPlaceholder: {
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   teamName: {
-    color: Colors.light.text,
     fontSize: 14,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -303,16 +290,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   scoreText: {
-    color: Colors.light.text,
     fontSize: 24,
     fontWeight: 'bold',
   },
   scoreDivider: {
-    color: Colors.light.textSecondary,
     fontSize: 20,
   },
   versusText: {
-    color: Colors.light.textSecondary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -331,14 +315,12 @@ const styles = StyleSheet.create({
   actionButton: {
     backgroundColor: 'rgba(108, 92, 231, 0.1)',
     borderWidth: 1,
-    borderColor: Colors.light.accentPrimary,
     borderRadius: Spacing.two,
     paddingVertical: Spacing.two,
     alignItems: 'center',
     marginTop: Spacing.three,
   },
   actionButtonText: {
-    color: Colors.light.accentPrimary,
     fontWeight: 'bold',
     fontSize: 14,
   },

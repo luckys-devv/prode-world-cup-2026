@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,6 +9,9 @@ import {
   Alert,
   Platform,
   Image,
+  Clipboard,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect, Link } from 'expo-router';
 import QRCode from 'react-qr-code';
@@ -17,6 +20,7 @@ import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { api } from '../../services/api';
 import { Group, Match, MatchStage, MatchStatus } from '@prode/shared';
+import { useTheme } from '../../hooks/use-theme';
 
 const STAGES = [
   { key: MatchStage.GROUP_STAGE, label: 'Grupos' },
@@ -61,6 +65,7 @@ interface PredictionState {
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const colors = useTheme();
 
   const [group, setGroup] = useState<GroupDetail | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -74,7 +79,23 @@ export default function GroupDetailScreen() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<PredictionState>({});
   const [loadingPredictions, setLoadingPredictions] = useState(false);
-  const [savingMatchId, setSavingMatchId] = useState<number | null>(null);
+
+  // Auto-guardado en caliente
+  const [saveStates, setSaveStates] = useState<{ [matchId: number]: 'idle' | 'saving' | 'saved' | 'error' }>({});
+  const debounceTimers = useRef<{ [matchId: number]: any }>({});
+
+  // Selección de campeón
+  const [teams, setTeams] = useState<any[]>([]);
+  const [championId, setChampionId] = useState<number | null>(null);
+  const [savingChampion, setSavingChampion] = useState(false);
+  const [showPickerModal, setShowPickerModal] = useState(false);
+
+  // Limpiamos los timers del debouncing al desmontar
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === 'web') {
@@ -134,6 +155,22 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const fetchChampionData = async () => {
+    if (!id) return;
+    try {
+      const [teamsRes, champRes] = await Promise.all([
+        api.get('/matches/teams'),
+        api.get(`/predictions/group/${id}/champion`),
+      ]);
+      setTeams(teamsRes.data.data);
+      if (champRes.data.data) {
+        setChampionId(champRes.data.data.teamId);
+      }
+    } catch (error) {
+      console.error('Error al cargar datos del campeón:', error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       if (id) {
@@ -142,13 +179,15 @@ export default function GroupDetailScreen() {
     }, [id])
   );
 
-  // Agregamos "id" al dependency array para que se recargue al cambiar de grupo
   useFocusEffect(
     useCallback(() => {
       if (activeTab === 'predictions') {
         fetchPredictionsData();
+        if (group?.scoringConfig?.champion?.enabled) {
+          fetchChampionData();
+        }
       }
-    }, [activeTab, selectedStage, id])
+    }, [activeTab, selectedStage, id, group?.scoringConfig?.champion?.enabled])
   );
 
   const handleSendInvite = async () => {
@@ -176,14 +215,23 @@ export default function GroupDetailScreen() {
   const handleDeleteGroup = async () => {
     const confirmDelete = Platform.OS === 'web'
       ? window.confirm('¿Estás seguro de que deseas eliminar este grupo? Esta acción no se puede deshacer.')
-      : true; // En mobile deberíamos usar Alert.alert con botones, por ahora lo simplificamos a true en este paso
+      : await new Promise((resolve) => {
+        Alert.alert(
+          'Confirmar eliminación',
+          '¿Estás seguro de que deseas eliminar este grupo? Esta acción no se puede deshacer.',
+          [
+            { text: 'Cancelar', onPress: () => resolve(false), style: 'cancel' },
+            { text: 'Eliminar', onPress: () => resolve(true), style: 'destructive' }
+          ]
+        );
+      });
 
     if (!confirmDelete) return;
 
     try {
       setLoading(true);
       await api.delete(`/groups/${id}`);
-      showAlert('¡Grupo Eliminado!', 'El grupo se eliminó correctamente.');
+      // MEJORA 2.3: Eliminación silenciosa y directa sin alert final de éxito
       router.replace('/groups');
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Error al eliminar el grupo.';
@@ -193,7 +241,6 @@ export default function GroupDetailScreen() {
     }
   };
 
-  // Helper para deducir el ganador según los goles tipeados
   const getDeducedWinner = (homeScoreStr: string, awayScoreStr: string): 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null => {
     const home = parseInt(homeScoreStr, 10);
     const away = parseInt(awayScoreStr, 10);
@@ -212,16 +259,46 @@ export default function GroupDetailScreen() {
         isSaved: true,
       };
 
-      // Clonamos el estado del partido
       const updated = {
         ...current,
         [field]: value,
       };
 
-      // Deducimos el ganador en caliente con los nuevos goles
       const deduced = getDeducedWinner(updated.predictedHomeScore, updated.predictedAwayScore);
       updated.prediction = deduced;
       updated.isSaved = false;
+
+      if (updated.predictedHomeScore.trim() !== '' && updated.predictedAwayScore.trim() !== '') {
+        if (debounceTimers.current[matchId]) {
+          clearTimeout(debounceTimers.current[matchId]);
+        }
+
+        setSaveStates((prevStates) => ({ ...prevStates, [matchId]: 'saving' }));
+
+        debounceTimers.current[matchId] = setTimeout(async () => {
+          try {
+            await api.post('/predictions', {
+              matchId,
+              groupId: Number(id),
+              prediction: deduced,
+              predictedHomeScore: parseInt(updated.predictedHomeScore, 10),
+              predictedAwayScore: parseInt(updated.predictedAwayScore, 10),
+            });
+
+            setPredictions((prevPreds) => ({
+              ...prevPreds,
+              [matchId]: {
+                ...prevPreds[matchId],
+                isSaved: true,
+              },
+            }));
+            setSaveStates((prevStates) => ({ ...prevStates, [matchId]: 'saved' }));
+          } catch (error) {
+            console.error('Error auto-guardando predicción:', error);
+            setSaveStates((prevStates) => ({ ...prevStates, [matchId]: 'error' }));
+          }
+        }, 800);
+      }
 
       return {
         ...prev,
@@ -230,54 +307,28 @@ export default function GroupDetailScreen() {
     });
   };
 
-  const handleSavePrediction = async (matchId: number) => {
-    const pred = predictions[matchId];
-    if (!pred) return;
-
-    const homeScore = pred.predictedHomeScore.trim() !== '' ? parseInt(pred.predictedHomeScore, 10) : null;
-    const awayScore = pred.predictedAwayScore.trim() !== '' ? parseInt(pred.predictedAwayScore, 10) : null;
-
-    if (homeScore === null || awayScore === null) {
-      showAlert('Error', 'Por favor ingresá la cantidad de goles para ambos equipos.');
-      return;
-    }
-
-    const deducedWinner = getDeducedWinner(pred.predictedHomeScore, pred.predictedAwayScore);
-    if (!deducedWinner) {
-      showAlert('Error', 'Error al calcular el ganador del partido.');
-      return;
-    }
-
+  const handleSaveChampion = async (teamId: number) => {
+    if (!teamId) return;
     try {
-      setSavingMatchId(matchId);
-      await api.post('/predictions', {
-        matchId,
+      setSavingChampion(true);
+      await api.post('/predictions/champion', {
         groupId: Number(id),
-        prediction: deducedWinner,
-        predictedHomeScore: homeScore,
-        predictedAwayScore: awayScore,
+        teamId,
       });
-
-      setPredictions((prev) => ({
-        ...prev,
-        [matchId]: {
-          ...prev[matchId],
-          isSaved: true,
-        },
-      }));
-      showAlert('¡Pronóstico Guardado!', 'Tu predicción se registró con éxito.');
+      setChampionId(teamId);
+      showAlert('¡Pronóstico Guardado!', 'Elegiste a tu equipo campeón con éxito.');
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Error al guardar el pronóstico.';
+      const errorMsg = error.response?.data?.message || 'Error al guardar el campeón.';
       showAlert('Error', errorMsg);
     } finally {
-      setSavingMatchId(null);
+      setSavingChampion(false);
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.light.accentPrimary} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.accentPrimary} />
         <ThemedText themeColor="textSecondary" style={styles.loadingText}>
           Cargando sala...
         </ThemedText>
@@ -291,8 +342,13 @@ export default function GroupDetailScreen() {
     ? `${window.location.origin}/group/join/${group.inviteCode}`
     : `prode://group/join/${group.inviteCode}`;
 
+  const isTournamentStarted = matches.length > 0 && new Date() >= new Date(matches[0].matchDate);
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
       {/* Encabezado */}
       <View style={styles.header}>
         <Link href="/groups" asChild>
@@ -300,7 +356,9 @@ export default function GroupDetailScreen() {
             <ThemedText themeColor="accentSecondary" type="smallBold">← Volver a Grupos</ThemedText>
           </TouchableOpacity>
         </Link>
-        <ThemedText type="subtitle" style={styles.groupName}>{group.name}</ThemedText>
+        <ThemedText type="subtitle" style={[styles.groupNameText, { color: colors.text }]}>
+          {group.name}
+        </ThemedText>
         {group.prizeDescription ? (
           <ThemedText themeColor="accentGold" type="smallBold" style={styles.prizeDesc}>
             🏆 Premio: {group.prizeDescription}
@@ -313,9 +371,9 @@ export default function GroupDetailScreen() {
       </View>
 
       {/* Subnavegación de Pestañas */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'leaderboard' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'leaderboard' && { backgroundColor: colors.backgroundSelected }]}
           onPress={() => setActiveTab('leaderboard')}
         >
           <ThemedText type="smallBold" themeColor={activeTab === 'leaderboard' ? 'text' : 'textSecondary'}>
@@ -323,7 +381,7 @@ export default function GroupDetailScreen() {
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'predictions' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'predictions' && { backgroundColor: colors.backgroundSelected }]}
           onPress={() => setActiveTab('predictions')}
         >
           <ThemedText type="smallBold" themeColor={activeTab === 'predictions' ? 'text' : 'textSecondary'}>
@@ -331,7 +389,7 @@ export default function GroupDetailScreen() {
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'members' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'members' && { backgroundColor: colors.backgroundSelected }]}
           onPress={() => setActiveTab('members')}
         >
           <ThemedText type="smallBold" themeColor={activeTab === 'members' ? 'text' : 'textSecondary'}>
@@ -339,7 +397,7 @@ export default function GroupDetailScreen() {
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'invite' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'invite' && { backgroundColor: colors.backgroundSelected }]}
           onPress={() => setActiveTab('invite')}
         >
           <ThemedText type="smallBold" themeColor={activeTab === 'invite' ? 'text' : 'textSecondary'}>
@@ -350,10 +408,10 @@ export default function GroupDetailScreen() {
 
       {/* Contenido de Pestaña: POSICIONES */}
       {activeTab === 'leaderboard' && (
-        <ThemedView type="backgroundElement" style={styles.card}>
+        <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
           <ThemedText type="smallBold" style={styles.cardTitle}>Tabla de Posiciones</ThemedText>
 
-          <View style={styles.tableHeader}>
+          <View style={[styles.tableHeader, { borderColor: colors.border }]}>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.colRank}>Pos</ThemedText>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.colUser}>Usuario</ThemedText>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.colStat}>Ac.</ThemedText>
@@ -376,7 +434,7 @@ export default function GroupDetailScreen() {
               else if (rank === 3) { medal = '🥉'; rankStyle = styles.rankThird; }
 
               return (
-                <View key={row.userId} style={[styles.tableRow, index > 0 && styles.borderRow]}>
+                <View key={row.userId} style={[styles.tableRow, index > 0 && [styles.borderRow, { borderColor: colors.border }]]}>
                   <View style={styles.colRank}>
                     {medal ? (
                       <ThemedText style={styles.medal}>{medal}</ThemedText>
@@ -384,7 +442,7 @@ export default function GroupDetailScreen() {
                       <ThemedText style={rankStyle}>{rank}</ThemedText>
                     )}
                   </View>
-                  <ThemedText type="smallBold" style={styles.colUser}>{row.displayName}</ThemedText>
+                  <ThemedText type="smallBold" style={[styles.colUser, { color: colors.text }]}>{row.displayName}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.colStat}>
                     {row.aciertosGanador}
                   </ThemedText>
@@ -404,14 +462,78 @@ export default function GroupDetailScreen() {
       {/* Contenido de Pestaña: PRONÓSTICOS */}
       {activeTab === 'predictions' && (
         <View style={{ gap: Spacing.four }}>
-          <View style={styles.stagesSelector}>
+
+          {/* SELECCIÓN DEL CAMPEÓN DEL MUNDIA */}
+          {group.scoringConfig?.champion?.enabled && (
+            <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
+              <ThemedText type="smallBold" style={styles.cardTitle}>🏆 Predicción de Campeón Mundial</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.three }}>
+                Elegí qué equipo creés que ganará la Copa del Mundo 2026.
+              </ThemedText>
+
+              {Platform.OS === 'web' ? (
+                <select
+                  value={championId || ''}
+                  onChange={(e) => handleSaveChampion(Number(e.target.value))}
+                  disabled={isTournamentStarted || savingChampion}
+                  style={{
+                    backgroundColor: colors.backgroundSelected,
+                    color: colors.text,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    padding: 10,
+                    fontSize: 15,
+                    width: '100%',
+                    cursor: isTournamentStarted ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <option value="">-- Seleccioná un Equipo --</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.pickerBtn,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.backgroundSelected,
+                      opacity: isTournamentStarted ? 0.6 : 1
+                    }
+                  ]}
+                  onPress={() => setShowPickerModal(true)}
+                  disabled={isTournamentStarted || savingChampion}
+                >
+                  {savingChampion ? (
+                    <ActivityIndicator size="small" color={colors.accentPrimary} />
+                  ) : (
+                    <ThemedText type="smallBold" style={{ color: colors.text }}>
+                      {championId
+                        ? `🏆 ${teams.find((t) => t.id === championId)?.name}`
+                        : 'Seleccionar Equipo Campeón'}
+                    </ThemedText>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {isTournamentStarted && (
+                <ThemedText type="code" themeColor="error" style={{ marginTop: Spacing.two, textAlign: 'center' }}>
+                  🔒 Elección de campeón cerrada (el torneo ya comenzó)
+                </ThemedText>
+              )}
+            </ThemedView>
+          )}
+
+          <View style={[styles.stagesSelector, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stagesScroll}>
               {STAGES.map((stage) => {
                 const isActive = selectedStage === stage.key;
                 return (
                   <TouchableOpacity
                     key={stage.key}
-                    style={[styles.stageTabButton, isActive && styles.stageTabButtonActive]}
+                    style={[styles.stageTabButton, isActive && { backgroundColor: colors.accentPrimary }]}
                     onPress={() => setSelectedStage(stage.key)}
                   >
                     <ThemedText type="smallBold" style={[styles.stageTabText, isActive && styles.stageTabTextActive]}>
@@ -424,9 +546,9 @@ export default function GroupDetailScreen() {
           </View>
 
           {loadingPredictions ? (
-            <ActivityIndicator size="large" color={Colors.light.accentPrimary} style={{ marginTop: Spacing.five }} />
+            <ActivityIndicator size="large" color={colors.accentPrimary} style={{ marginTop: Spacing.five }} />
           ) : matches.length === 0 ? (
-            <ThemedView type="backgroundElement" style={styles.emptyCard}>
+            <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
               <ThemedText themeColor="textSecondary" style={styles.centerText}>
                 No hay partidos programados para esta fase.
               </ThemedText>
@@ -441,11 +563,10 @@ export default function GroupDetailScreen() {
               };
 
               const isMatchClosed = new Date() >= new Date(match.matchDate);
-              const hasChanges = !localPred.isSaved;
 
               return (
-                <ThemedView key={match.id} type="backgroundElement" style={styles.matchCard}>
-                  <View style={styles.matchCardHeader}>
+                <ThemedView key={match.id} type="backgroundElement" style={[styles.matchCard, { borderColor: colors.border }]}>
+                  <View style={[styles.matchCardHeader, { borderColor: colors.border }]}>
                     <ThemedText type="code" themeColor="accentSecondary">
                       {new Date(match.matchDate).toLocaleDateString('es-AR', {
                         weekday: 'short',
@@ -455,9 +576,22 @@ export default function GroupDetailScreen() {
                         minute: '2-digit',
                       })} hs
                     </ThemedText>
+
                     {isMatchClosed ? (
                       <View style={styles.closedBadge}>
                         <ThemedText type="code" style={styles.closedBadgeText}>🔒 Cerrado</ThemedText>
+                      </View>
+                    ) : saveStates[match.id] === 'saving' ? (
+                      <View style={[styles.openBadge, { backgroundColor: 'rgba(217, 119, 6, 0.1)' }]}>
+                        <ThemedText type="code" style={{ color: colors.accentGold, fontSize: 10, fontWeight: 'bold' }}>⏳ Guardando...</ThemedText>
+                      </View>
+                    ) : saveStates[match.id] === 'saved' ? (
+                      <View style={[styles.openBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                        <ThemedText type="code" style={{ color: colors.success, fontSize: 10, fontWeight: 'bold' }}>✓ Guardado</ThemedText>
+                      </View>
+                    ) : saveStates[match.id] === 'error' ? (
+                      <View style={[styles.closedBadge, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                        <ThemedText type="code" style={{ color: colors.error, fontSize: 10, fontWeight: 'bold' }}>⚠️ Error</ThemedText>
                       </View>
                     ) : (
                       <View style={styles.openBadge}>
@@ -472,35 +606,43 @@ export default function GroupDetailScreen() {
                       {match.homeTeam.crestUrl ? (
                         <Image source={{ uri: match.homeTeam.crestUrl }} style={styles.flag} />
                       ) : (
-                        <View style={[styles.flag, styles.flagPlaceholder]} />
+                        <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
                       )}
-                      <ThemedText type="smallBold" numberOfLines={1} style={styles.teamName}>
+                      <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
                         {match.homeTeam.shortName}
                       </ThemedText>
                     </View>
 
-                    {/* Inputs de Goles (Siempre activados por defecto) */}
+                    {/* Inputs de Goles */}
                     <View style={styles.exactScoreInputs}>
                       <TextInput
-                        style={[styles.scoreInput, isMatchClosed && styles.inputDisabled]}
+                        style={[styles.scoreInput, {
+                          backgroundColor: colors.backgroundSelected,
+                          borderColor: colors.border,
+                          color: colors.text
+                        }, isMatchClosed && styles.inputDisabled]}
                         keyboardType="number-pad"
                         maxLength={2}
                         value={localPred.predictedHomeScore}
                         onChangeText={(val) => updateLocalScore(match.id, 'predictedHomeScore', val)}
                         editable={!isMatchClosed}
                         placeholder="0"
-                        placeholderTextColor="#555B77"
+                        placeholderTextColor={colors.textSecondary}
                       />
                       <ThemedText type="smallBold" themeColor="textSecondary">-</ThemedText>
                       <TextInput
-                        style={[styles.scoreInput, isMatchClosed && styles.inputDisabled]}
+                        style={[styles.scoreInput, {
+                          backgroundColor: colors.backgroundSelected,
+                          borderColor: colors.border,
+                          color: colors.text
+                        }, isMatchClosed && styles.inputDisabled]}
                         keyboardType="number-pad"
                         maxLength={2}
                         value={localPred.predictedAwayScore}
                         onChangeText={(val) => updateLocalScore(match.id, 'predictedAwayScore', val)}
                         editable={!isMatchClosed}
                         placeholder="0"
-                        placeholderTextColor="#555B77"
+                        placeholderTextColor={colors.textSecondary}
                       />
                     </View>
 
@@ -509,20 +651,21 @@ export default function GroupDetailScreen() {
                       {match.awayTeam.crestUrl ? (
                         <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flag} />
                       ) : (
-                        <View style={[styles.flag, styles.flagPlaceholder]} />
+                        <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
                       )}
-                      <ThemedText type="smallBold" numberOfLines={1} style={styles.teamName}>
+                      <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
                         {match.awayTeam.shortName}
                       </ThemedText>
                     </View>
                   </View>
 
-                  {/* CORRECCIÓN: Botones de Lectura (deshabilitados). Se prenden solos según el score ingresado */}
+                  {/* Indicador de Ganador Deducido en tiempo real */}
                   <View style={styles.selectorRow}>
                     <View
                       style={[
                         styles.selectorBtn,
-                        localPred.prediction === 'HOME_TEAM' && styles.selectorBtnSelected,
+                        { backgroundColor: colors.backgroundSelected, borderColor: colors.border },
+                        localPred.prediction === 'HOME_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
                         styles.readOnlyBtn,
                       ]}
                     >
@@ -537,7 +680,8 @@ export default function GroupDetailScreen() {
                     <View
                       style={[
                         styles.selectorBtn,
-                        localPred.prediction === 'DRAW' && styles.selectorBtnSelected,
+                        { backgroundColor: colors.backgroundSelected, borderColor: colors.border },
+                        localPred.prediction === 'DRAW' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
                         styles.readOnlyBtn,
                       ]}
                     >
@@ -552,7 +696,8 @@ export default function GroupDetailScreen() {
                     <View
                       style={[
                         styles.selectorBtn,
-                        localPred.prediction === 'AWAY_TEAM' && styles.selectorBtnSelected,
+                        { backgroundColor: colors.backgroundSelected, borderColor: colors.border },
+                        localPred.prediction === 'AWAY_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
                         styles.readOnlyBtn,
                       ]}
                     >
@@ -564,21 +709,6 @@ export default function GroupDetailScreen() {
                       </ThemedText>
                     </View>
                   </View>
-
-                  {/* Botón de Guardar Pronóstico */}
-                  {hasChanges && !isMatchClosed && (
-                    <TouchableOpacity
-                      style={styles.savePredBtn}
-                      onPress={() => handleSavePrediction(match.id)}
-                      disabled={savingMatchId === match.id}
-                    >
-                      {savingMatchId === match.id ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <ThemedText type="smallBold" style={styles.savePredText}>Guardar Pronóstico</ThemedText>
-                      )}
-                    </TouchableOpacity>
-                  )}
                 </ThemedView>
               );
             })
@@ -588,12 +718,12 @@ export default function GroupDetailScreen() {
 
       {/* Contenido de Pestaña: MIEMBROS */}
       {activeTab === 'members' && (
-        <ThemedView type="backgroundElement" style={styles.card}>
+        <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
           <ThemedText type="smallBold" style={styles.cardTitle}>Miembros del Grupo</ThemedText>
           {group.members.map((member: any, index: number) => (
-            <View key={member.id} style={[styles.memberRow, index > 0 && styles.borderRow]}>
+            <View key={member.id} style={[styles.memberRow, index > 0 && [styles.borderRow, { borderColor: colors.border }]]}>
               <View>
-                <ThemedText type="smallBold">{member.user.displayName}</ThemedText>
+                <ThemedText type="smallBold" style={{ color: colors.text }}>{member.user.displayName}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">{member.user.email}</ThemedText>
               </View>
               <View style={[
@@ -612,10 +742,10 @@ export default function GroupDetailScreen() {
       {/* Contenido de Pestaña: INVITAR */}
       {activeTab === 'invite' && (
         <View style={{ gap: Spacing.four }}>
-          <ThemedView type="backgroundElement" style={[styles.card, { alignItems: 'center' }]}>
+          <ThemedView type="backgroundElement" style={[styles.card, { alignItems: 'center', borderColor: colors.border }]}>
             <ThemedText type="smallBold" style={styles.cardTitle}>Compartir Grupo</ThemedText>
 
-            <View style={styles.qrContainer}>
+            <View style={[styles.qrContainer, { borderColor: colors.border }]}>
               <QRCode
                 value={inviteUrl}
                 size={160}
@@ -628,19 +758,40 @@ export default function GroupDetailScreen() {
             <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.three }}>
               Código de Invitación:
             </ThemedText>
-            <ThemedView type="backgroundSelected" style={styles.codeBox}>
+            <ThemedView type="backgroundSelected" style={[styles.codeBox, { borderColor: colors.border }]}>
               <ThemedText type="title" style={styles.codeText}>{group.inviteCode}</ThemedText>
             </ThemedView>
+
+            {/* MEJORA 2.5: Botón para Copiar Código al Portapapeles */}
+            <TouchableOpacity
+              style={[styles.copyCodeBtn, { borderColor: colors.border }]}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  navigator.clipboard.writeText(group.inviteCode);
+                } else {
+                  Clipboard.setString(group.inviteCode);
+                }
+                showAlert('¡Copiado!', 'El código de invitación se copió al portapapeles.');
+              }}
+            >
+              <ThemedText type="smallBold" themeColor="accentSecondary">
+                📋 Copiar Código
+              </ThemedText>
+            </TouchableOpacity>
           </ThemedView>
 
-          <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
             <ThemedText type="smallBold" style={styles.cardTitle}>Invitar por Email</ThemedText>
 
             <View style={styles.inviteInputRow}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, {
+                  backgroundColor: colors.backgroundSelected,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
                 placeholder="amigo@correo.com"
-                placeholderTextColor="#555B77"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={inviteEmail}
@@ -659,6 +810,7 @@ export default function GroupDetailScreen() {
               </TouchableOpacity>
             </View>
           </ThemedView>
+
           {/* Botón de eliminar (Solo visible si eres creador y estás solo en el grupo) */}
           {group.currentUserRole === 'admin' && group.memberCount === 1 && (
             <TouchableOpacity style={styles.deleteGroupButton} onPress={handleDeleteGroup}>
@@ -669,6 +821,47 @@ export default function GroupDetailScreen() {
           )}
         </View>
       )}
+
+      {/* Modal para selección de campeón en Nativo */}
+      <Modal
+        visible={showPickerModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPickerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ThemedView type="backgroundElement" style={[styles.modalContent, { borderColor: colors.border }]}>
+            <ThemedText type="smallBold" style={styles.modalTitle}>Elegir Campeón Mundial</ThemedText>
+
+            <FlatList
+              data={teams}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalItem,
+                    championId === item.id && { backgroundColor: 'rgba(108, 92, 231, 0.1)' }
+                  ]}
+                  onPress={() => {
+                    handleSaveChampion(item.id);
+                    setShowPickerModal(false);
+                  }}
+                >
+                  <ThemedText type="smallBold" style={{ color: colors.text }}>{item.name}</ThemedText>
+                </TouchableOpacity>
+              )}
+              style={{ maxHeight: 300 }}
+            />
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowPickerModal(false)}
+            >
+              <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>Cerrar</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -676,7 +869,6 @@ export default function GroupDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   content: {
     padding: Spacing.four,
@@ -689,7 +881,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.light.background,
   },
   loadingText: {
     marginTop: Spacing.three,
@@ -700,19 +891,18 @@ const styles = StyleSheet.create({
   backButton: {
     marginBottom: Spacing.two,
   },
-  groupName: {
+  groupNameText: {
     fontWeight: 'bold',
+    fontSize: 22,
   },
   prizeDesc: {
     marginTop: Spacing.one,
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: Colors.light.backgroundElement,
     borderRadius: Spacing.two,
     padding: Spacing.one,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   tabItem: {
     flex: 1,
@@ -720,14 +910,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: Spacing.one,
   },
-  tabItemActive: {
-    backgroundColor: Colors.light.backgroundSelected,
-  },
   card: {
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   cardTitle: {
     fontSize: 15,
@@ -741,7 +927,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: Spacing.two,
     borderBottomWidth: 1,
-    borderColor: 'rgba(42, 49, 84, 0.4)',
   },
   tableRow: {
     flexDirection: 'row',
@@ -750,7 +935,6 @@ const styles = StyleSheet.create({
   },
   borderRow: {
     borderTopWidth: 1,
-    borderColor: 'rgba(42, 49, 84, 0.2)',
   },
   colRank: {
     width: 45,
@@ -758,7 +942,6 @@ const styles = StyleSheet.create({
   },
   colUser: {
     flex: 1,
-    color: '#FFFFFF',
   },
   colStat: {
     width: 40,
@@ -804,7 +987,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#131832',
     borderRadius: Spacing.two,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   codeBox: {
     marginTop: Spacing.two,
@@ -812,7 +994,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.five,
     borderRadius: Spacing.two,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   codeText: {
     fontSize: 28,
@@ -826,13 +1007,10 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundSelected,
-    borderColor: Colors.light.border,
     borderWidth: 1,
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
     height: 44,
-    color: '#FFFFFF',
     fontSize: 15,
   },
   inviteBtn: {
@@ -856,8 +1034,6 @@ const styles = StyleSheet.create({
 
   // Estilos de la Pestaña de Pronósticos
   stagesSelector: {
-    backgroundColor: Colors.light.backgroundSelected,
-    borderColor: Colors.light.border,
     borderWidth: 1,
     borderRadius: Spacing.two,
     paddingVertical: Spacing.two,
@@ -870,10 +1046,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one + Spacing.half,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.one + Spacing.half,
-    backgroundColor: Colors.light.backgroundElement,
-  },
-  stageTabButtonActive: {
-    backgroundColor: Colors.light.accentPrimary,
+    backgroundColor: 'rgba(28, 35, 68, 0.4)',
   },
   stageTabText: {
     color: Colors.light.textSecondary,
@@ -886,13 +1059,11 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     padding: Spacing.five,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   matchCard: {
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     gap: Spacing.three,
   },
   matchCardHeader: {
@@ -944,10 +1115,8 @@ const styles = StyleSheet.create({
   },
   flagPlaceholder: {
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   teamName: {
-    color: '#FFFFFF',
     fontSize: 13,
     textAlign: 'center',
     width: '100%',
@@ -958,14 +1127,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   scoreInput: {
-    backgroundColor: Colors.light.backgroundSelected,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     borderRadius: Spacing.one,
     width: 44,
     height: 40,
     textAlign: 'center',
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -983,33 +1149,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: Spacing.two,
-    backgroundColor: Colors.light.backgroundSelected,
-    borderColor: Colors.light.border,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  selectorBtnSelected: {
-    backgroundColor: Colors.light.accentPrimary,
-    borderColor: Colors.light.accentPrimary,
-  },
   readOnlyBtn: {
     opacity: 0.85,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  savePredBtn: {
-    backgroundColor: 'rgba(108, 92, 231, 0.15)',
-    borderWidth: 1,
-    borderColor: Colors.light.accentPrimary,
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.two,
-    alignItems: 'center',
-    marginTop: Spacing.two,
-  },
-  savePredText: {
-    color: Colors.light.accentPrimary,
   },
   deleteGroupButton: {
     backgroundColor: 'rgba(255, 82, 82, 0.1)',
@@ -1023,5 +1168,58 @@ const styles = StyleSheet.create({
   },
   deleteGroupText: {
     color: Colors.light.error,
+  },
+
+  // Componentes agregados para modal e invitaciones
+  copyCodeBtn: {
+    marginTop: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    alignItems: 'center',
+  },
+  pickerBtn: {
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: Spacing.four,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 450,
+    borderRadius: Spacing.three,
+    padding: Spacing.four,
+    borderWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: Spacing.three,
+    textAlign: 'center',
+    color: '#00D2FF',
+  },
+  modalItem: {
+    paddingVertical: Spacing.three,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+  },
+  modalCloseBtn: {
+    marginTop: Spacing.three,
+    backgroundColor: Colors.light.error,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two,
+    alignItems: 'center',
   },
 });
