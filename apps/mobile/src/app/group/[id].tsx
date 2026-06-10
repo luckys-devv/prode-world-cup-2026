@@ -90,6 +90,12 @@ export default function GroupDetailScreen() {
   const [savingChampion, setSavingChampion] = useState(false);
   const [showPickerModal, setShowPickerModal] = useState(false);
 
+  // Ver predicciones de otros miembros
+  const [selectedMember, setSelectedMember] = useState<{ id: number; displayName: string } | null>(null);
+  const [memberPredictions, setMemberPredictions] = useState<any[]>([]);
+  const [loadingMemberPreds, setLoadingMemberPreds] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+
   // Limpiamos los timers del debouncing al desmontar
   useEffect(() => {
     return () => {
@@ -171,6 +177,22 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const fetchMemberPredictions = async (userId: number, displayName: string) => {
+    try {
+      setLoadingMemberPreds(true);
+      setSelectedMember({ id: userId, displayName });
+      setShowMemberModal(true);
+      const res = await api.get(`/predictions/group/${id}/user/${userId}`);
+      setMemberPredictions(res.data.data);
+    } catch (error) {
+      console.error('Error al cargar predicciones de miembro:', error);
+      showAlert('Error', 'No se pudieron cargar las predicciones del miembro.');
+      setShowMemberModal(false);
+    } finally {
+      setLoadingMemberPreds(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       if (id) {
@@ -231,7 +253,6 @@ export default function GroupDetailScreen() {
     try {
       setLoading(true);
       await api.delete(`/groups/${id}`);
-      // MEJORA 2.3: Eliminación silenciosa y directa sin alert final de éxito
       router.replace('/groups');
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Error al eliminar el grupo.';
@@ -268,6 +289,7 @@ export default function GroupDetailScreen() {
       updated.prediction = deduced;
       updated.isSaved = false;
 
+      // Lógica de auto-guardado en caliente con debouncing (800ms)
       if (updated.predictedHomeScore.trim() !== '' && updated.predictedAwayScore.trim() !== '') {
         if (debounceTimers.current[matchId]) {
           clearTimeout(debounceTimers.current[matchId]);
@@ -463,7 +485,7 @@ export default function GroupDetailScreen() {
       {activeTab === 'predictions' && (
         <View style={{ gap: Spacing.four }}>
 
-          {/* SELECCIÓN DEL CAMPEÓN DEL MUNDIA */}
+          {/* SELECCIÓN DEL CAMPEÓN DEL MUNDIAL */}
           {group.scoringConfig?.champion?.enabled && (
             <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
               <ThemedText type="smallBold" style={styles.cardTitle}>🏆 Predicción de Campeón Mundial</ThemedText>
@@ -721,20 +743,27 @@ export default function GroupDetailScreen() {
         <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
           <ThemedText type="smallBold" style={styles.cardTitle}>Miembros del Grupo</ThemedText>
           {group.members.map((member: any, index: number) => (
-            <View key={member.id} style={[styles.memberRow, index > 0 && [styles.borderRow, { borderColor: colors.border }]]}>
+            <TouchableOpacity
+              key={member.id}
+              style={[styles.memberRow, index > 0 && [styles.borderRow, { borderColor: colors.border }]]}
+              onPress={() => fetchMemberPredictions(member.user.id, member.user.displayName)}
+            >
               <View>
                 <ThemedText type="smallBold" style={{ color: colors.text }}>{member.user.displayName}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">{member.user.email}</ThemedText>
               </View>
-              <View style={[
-                styles.roleBadge,
-                member.role === 'admin' ? styles.roleAdmin : styles.roleMember
-              ]}>
-                <ThemedText type="code" style={styles.roleText}>
-                  {member.role === 'admin' ? 'Creador' : 'Jugador'}
-                </ThemedText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two }}>
+                <View style={[
+                  styles.roleBadge,
+                  member.role === 'admin' ? styles.roleAdmin : styles.roleMember
+                ]}>
+                  <ThemedText type="code" style={styles.roleText}>
+                    {member.role === 'admin' ? 'Creador' : 'Jugador'}
+                  </ThemedText>
+                </View>
+                <ThemedText themeColor="accentSecondary" type="smallBold">👁️ Ver</ThemedText>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </ThemedView>
       )}
@@ -762,7 +791,7 @@ export default function GroupDetailScreen() {
               <ThemedText type="title" style={styles.codeText}>{group.inviteCode}</ThemedText>
             </ThemedView>
 
-            {/* MEJORA 2.5: Botón para Copiar Código al Portapapeles */}
+            {/* Botón para Copiar Código al Portapapeles */}
             <TouchableOpacity
               style={[styles.copyCodeBtn, { borderColor: colors.border }]}
               onPress={() => {
@@ -856,6 +885,81 @@ export default function GroupDetailScreen() {
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowPickerModal(false)}
+            >
+              <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>Cerrar</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </View>
+      </Modal>
+
+      {/* MODAL PARA VER LAS PREDICCIONES DE UN JUGADOR */}
+      <Modal
+        visible={showMemberModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMemberModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.modalContent, { borderColor: colors.border, maxHeight: '80%' }]}
+          >
+            <ThemedText type="smallBold" style={styles.modalTitle}>
+              🎯 Pronósticos de {selectedMember?.displayName}
+            </ThemedText>
+
+            {loadingMemberPreds ? (
+              <ActivityIndicator size="large" color={colors.accentPrimary} style={{ marginVertical: Spacing.five }} />
+            ) : memberPredictions.length === 0 ? (
+              <ThemedText themeColor="textSecondary" style={[styles.centerText, { marginVertical: Spacing.four }]}>
+                Este usuario aún no tiene predicciones registradas.
+              </ThemedText>
+            ) : (
+              <FlatList
+                data={memberPredictions}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={({ item }) => {
+                  const isHidden = item.prediction === 'HIDDEN';
+
+                  return (
+                    <View style={[styles.memberMatchRow, { borderColor: colors.border }]}>
+                      {/* Equipos */}
+                      <View style={{ flex: 1.5 }}>
+                        <ThemedText type="smallBold" numberOfLines={1} style={{ color: colors.text }}>
+                          {item.match.homeTeam.shortName} vs {item.match.awayTeam.shortName}
+                        </ThemedText>
+                        <ThemedText type="code" themeColor="textSecondary">
+                          {item.match.stage === 'GROUP_STAGE' ? 'Fase de Grupos' : 'Eliminatorias'}
+                        </ThemedText>
+                      </View>
+
+                      {/* Predicción */}
+                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        {isHidden ? (
+                          <View style={styles.closedBadge}>
+                            <ThemedText type="code" style={styles.closedBadgeText}>🔒 Oculto</ThemedText>
+                          </View>
+                        ) : (
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <ThemedText type="smallBold" themeColor="accentSecondary">
+                              {item.predictedHomeScore} - {item.predictedAwayScore}
+                            </ThemedText>
+                            <ThemedText type="code" themeColor="textSecondary">
+                              {item.prediction === 'HOME_TEAM' ? 'Gana Local' : item.prediction === 'AWAY_TEAM' ? 'Gana Visita' : 'Empate'}
+                            </ThemedText>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                }}
+                style={{ marginVertical: Spacing.two }}
+              />
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowMemberModal(false)}
             >
               <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>Cerrar</ThemedText>
             </TouchableOpacity>
@@ -1221,5 +1325,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     alignItems: 'center',
+  },
+
+  // Visualización de predicciones de miembros
+  memberMatchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderBottomWidth: 1,
   },
 });
