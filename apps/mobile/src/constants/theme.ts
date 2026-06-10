@@ -4,24 +4,24 @@ import { Platform } from 'react-native';
 // usen el modo oscuro para forzar nuestra estética premium por defecto.
 export const Colors = {
   light: {
-    text: '#FFFFFF',                  // Texto principal
-    background: '#0A0E1A',            // Fondo oscuro azul profundo
-    backgroundElement: '#131832',     // Tarjetas (cards)
-    backgroundSelected: '#1C2344',    // Inputs y headers
-    textSecondary: '#8892B0',         // Texto secundario
+    text: '#1E293B',                  // Slate 800 (Oscuro para contraste)
+    background: '#F8FAFC',            // Slate 50 (Fondo claro limpio)
+    backgroundElement: '#FFFFFF',     // Blanco puro para las tarjetas (Cards)
+    backgroundSelected: '#F1F5F9',    // Slate 100 para items seleccionados/inputs
+    textSecondary: '#64748B',         // Slate 500 para textos secundarios
+    border: '#E2E8F0',                // Slate 200 para bordes premium
 
-    // Constantes personalizadas de Prode
+    // Colores de destaque ajustados para fondo claro
     accentPrimary: '#6C5CE7',
-    accentSecondary: '#00D2FF',
-    accentGold: '#FFD700',
-    accentSilver: '#C0C0C0',
-    accentBronze: '#CD7F32',
-    success: '#00E676',
-    error: '#FF5252',
-    border: '#2A3154',
+    accentSecondary: '#0284C7',
+    accentGold: '#D97706',
+    accentSilver: '#64748B',
+    accentBronze: '#B45309',
+    success: '#10B981',
+    error: '#EF4444',
   },
   dark: {
-    text: '#FFFFFF',                  // Mismos valores para forzar modo oscuro
+    text: '#FFFFFF',
     background: '#0A0E1A',
     backgroundElement: '#131832',
     backgroundSelected: '#1C2344',
@@ -37,7 +37,6 @@ export const Colors = {
     border: '#2A3154',
   },
 } as const;
-
 export type ThemeColor = keyof typeof Colors.light;
 
 export const Fonts = Platform.select({
