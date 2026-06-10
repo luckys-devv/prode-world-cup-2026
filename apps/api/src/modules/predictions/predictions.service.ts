@@ -63,7 +63,7 @@ export async function createOrUpdatePrediction(userId: number, input: CreatePred
 }
 
 /**
- * Obtiene las predicciones del usuario actual dentro de un grupo.
+ * Obtener las predicciones del usuario actual dentro de un grupo.
  */
 export async function getUserPredictionsInGroup(userId: number, groupId: number) {
   return await db.matchPrediction.findMany({
@@ -75,7 +75,7 @@ export async function getUserPredictionsInGroup(userId: number, groupId: number)
 }
 
 /**
- * Obtiene los pronósticos de todos los miembros para un partido en un grupo,
+ * Obtener los pronósticos de todos los miembros para un partido en un grupo,
  * aplicando la configuración de privacidad del grupo.
  */
 export async function getMatchPredictionsInGroup(groupId: number, matchId: number, currentUserId: number) {
@@ -193,7 +193,7 @@ export async function createOrUpdateChampionPrediction(userId: number, groupId: 
 }
 
 /**
- * Obtiene la predicción del campeón del usuario actual en un grupo.
+ * Obtener la predicción del campeón del usuario actual en un grupo.
  */
 export async function getChampionPrediction(userId: number, groupId: number) {
   return await db.championPrediction.findUnique({
@@ -203,5 +203,75 @@ export async function getChampionPrediction(userId: number, groupId: number) {
     include: {
       team: true,
     },
+  });
+}
+
+/**
+ * Obtener las predicciones de otro miembro de un grupo aplicando políticas de privacidad.
+ */
+export async function getMemberPredictionsInGroup(groupId: number, targetUserId: number, currentUserId: number) {
+  // 1. Validar que ambos sean miembros del grupo
+  const memberships = await db.groupMember.findMany({
+    where: {
+      groupId,
+      userId: { in: [currentUserId, targetUserId] },
+    },
+    include: {
+      group: true,
+    },
+  });
+
+  const currentUserMembership = memberships.find((m) => m.userId === currentUserId);
+  const targetUserMembership = memberships.find((m) => m.userId === targetUserId);
+
+  if (!currentUserMembership) {
+    const error = new Error('No tienes permiso para ver esta información (no eres miembro).') as any;
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (!targetUserMembership) {
+    const error = new Error('El usuario especificado no pertenece a este grupo.') as any;
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Obtener todas las predicciones del miembro objetivo en este grupo
+  const targetPredictions = await db.matchPrediction.findMany({
+    where: { groupId, userId: targetUserId },
+    include: {
+      match: {
+        include: {
+          homeTeam: true,
+          awayTeam: true,
+        },
+      },
+    },
+    orderBy: {
+      match: {
+        matchDate: 'asc',
+      },
+    },
+  });
+
+  // 3. Evaluar la privacidad según la configuración del grupo
+  const scoringConfig = currentUserMembership.group.scoringConfig as unknown as ScoringConfig;
+  const showBeforeStart = scoringConfig.showPredictionsBeforeStart ?? false;
+  const now = new Date();
+
+  return targetPredictions.map((pred) => {
+    const matchStarted = now >= new Date(pred.match.matchDate);
+    const canSee = matchStarted || showBeforeStart || targetUserId === currentUserId;
+
+    return {
+      id: pred.id,
+      matchId: pred.matchId,
+      match: pred.match,
+      prediction: canSee ? pred.prediction : 'HIDDEN',
+      predictedHomeScore: canSee ? pred.predictedHomeScore : null,
+      predictedAwayScore: canSee ? pred.predictedAwayScore : null,
+      winnerPoints: pred.winnerPoints,
+      exactScorePoints: pred.exactScorePoints,
+    };
   });
 }

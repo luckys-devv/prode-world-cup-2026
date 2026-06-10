@@ -80,7 +80,7 @@ export async function createOrUpdateChampionPredictionHandler(req: Request, res:
 }
 
 /**
- * Obtiene la predicción del campeón de un usuario en un grupo.
+ * Obtener la predicción del campeón de un usuario en un grupo.
  * GET /api/predictions/group/:groupId/champion
  */
 export async function getChampionPredictionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -93,6 +93,27 @@ export async function getChampionPredictionHandler(req: Request, res: Response, 
     const userId = req.user!.userId;
     const prediction = await predictionsService.getChampionPrediction(userId, groupId);
     sendSuccess(res, prediction, 'Predicción de campeón obtenida con éxito.');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Obtener las predicciones de otro miembro del grupo (con privacidad aplicada).
+ * GET /api/predictions/group/:groupId/user/:userId
+ */
+export async function getMemberPredictionsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const groupId = parseInt(req.params.groupId as string, 10);
+    const targetUserId = parseInt(req.params.userId as string, 10);
+
+    if (isNaN(groupId) || isNaN(targetUserId)) {
+      return sendBadRequest(res, 'Los IDs de grupo o usuario no son válidos.');
+    }
+
+    const currentUserId = req.user!.userId;
+    const predictions = await predictionsService.getMemberPredictionsInGroup(groupId, targetUserId, currentUserId);
+    sendSuccess(res, predictions, 'Predicciones del miembro obtenidas con éxito.');
   } catch (error) {
     next(error);
   }
