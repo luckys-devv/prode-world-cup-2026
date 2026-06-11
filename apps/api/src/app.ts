@@ -19,8 +19,22 @@ const app: Express = express();
 
 // Seguridad: agrega headers HTTP protectores a todas las respuestas
 app.use(helmet());
+const allowedOrigins = [
+  env.FRONTEND_URL,
+  'http://localhost:8081' // Permitir pruebas locales de la PWA
+];
+
 app.use(cors({
-  origin: env.FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Si la petición no tiene origen (como en las apps móviles nativas de Android/iOS o Postman), la permitimos
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqueado por CORS'));
+    }
+  },
   credentials: true,
 }));
 
