@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~56.0.16",
+    "@expo/vector-icons": "^15.1.1",
     "@prode/shared": "workspace:*",
     "axios": "^1.17.0",
     "date-fns": "^4.4.0",

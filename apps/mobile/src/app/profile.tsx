@@ -1,5 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../stores/authStore';
 import { useThemeStore } from '../stores/themeStore';
 import { Colors, Spacing } from '../constants/theme';
@@ -13,46 +15,57 @@ export default function ProfileScreen() {
   const colors = useTheme();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}
     >
-      <View style={styles.header}>
-        <ThemedText type="subtitle" style={styles.title}>Mi Perfil 👤</ThemedText>
-        <ThemedText themeColor="textSecondary" type="small">
-          Administrá los datos de tu cuenta.
-        </ThemedText>
-      </View>
-
-      <ThemedView
-        type="backgroundElement"
-        style={[styles.profileCard, { borderColor: colors.border }]}
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
       >
-        <View style={styles.row}>
-          <ThemedText type="smallBold" themeColor="textSecondary">Nombre:</ThemedText>
-          <ThemedText type="small">{user?.displayName || 'No configurado'}</ThemedText>
-        </View>
-        <View style={[styles.row, styles.borderRow, { borderColor: colors.border }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary">Email:</ThemedText>
-          <ThemedText type="small">{user?.email}</ThemedText>
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ThemedText type="subtitle" style={styles.title}>Mi Perfil</ThemedText>
+            <Ionicons name="person-outline" size={24} color={colors.accentSecondary} />
+          </View>
+          <ThemedText themeColor="textSecondary" type="small" style={{ marginTop: 4 }}>
+            Administrá los datos de tu cuenta.
+          </ThemedText>
         </View>
 
-        {/* INTERRUPTOR PREMIUM CLARO / OSCURO */}
-        <View style={[styles.row, styles.borderRow, { borderColor: colors.border, alignItems: 'center' }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary">Modo Oscuro:</ThemedText>
-          <Switch
-            value={theme === 'dark'}
-            onValueChange={toggleTheme}
-            trackColor={{ false: '#767577', true: '#6C5CE7' }}
-            thumbColor={theme === 'dark' ? '#00D2FF' : '#f4f3f4'}
-          />
-        </View>
-      </ThemedView>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.profileCard, { borderColor: colors.border }]}
+        >
+          <View style={styles.row}>
+            <ThemedText type="smallBold" themeColor="textSecondary">Nombre:</ThemedText>
+            <ThemedText type="small">{user?.displayName || 'No configurado'}</ThemedText>
+          </View>
+          <View style={[styles.row, styles.borderRow, { borderColor: colors.border }]}>
+            <ThemedText type="smallBold" themeColor="textSecondary">Email:</ThemedText>
+            <ThemedText type="small">{user?.email}</ThemedText>
+          </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <ThemedText type="smallBold" style={styles.logoutText}>Cerrar Sesión 🔓</ThemedText>
-      </TouchableOpacity>
-    </ScrollView>
+          {/* INTERRUPTOR PREMIUM CLARO / OSCURO */}
+          <View style={[styles.row, styles.borderRow, { borderColor: colors.border, alignItems: 'center' }]}>
+            <ThemedText type="smallBold" themeColor="textSecondary">Modo Oscuro:</ThemedText>
+            <Switch
+              value={theme === 'dark'}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#767577', true: '#6C5CE7' }}
+              thumbColor={theme === 'dark' ? '#00D2FF' : '#f4f3f4'}
+            />
+          </View>
+        </ThemedView>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <Ionicons name="log-out-outline" size={18} color={colors.error} />
+            <ThemedText type="smallBold" style={styles.logoutText}>Cerrar Sesión</ThemedText>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

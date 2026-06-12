@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
 import { Colors, Spacing } from '../constants/theme';
@@ -52,78 +53,83 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}
     >
-      <View style={styles.welcomeHeader}>
-        <ThemedText type="smallBold" themeColor="accentSecondary">
-          PANEL PRINCIPAL
-        </ThemedText>
-        <ThemedText type="subtitle" style={styles.username}>
-          ¡Hola, {user?.displayName || 'Jugador'}! 👋
-        </ThemedText>
-        <ThemedText themeColor="textSecondary" type="small">
-          Bienvenido al Prode del Mundial FIFA 2026.
-        </ThemedText>
-      </View>
-
-      {/* Tarjeta de Resumen Rápido Dinámica */}
-      <ThemedView
-        type="backgroundElement"
-        style={[styles.statsCard, { borderColor: colors.border }]}
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
       >
-        {loading ? (
-          <ActivityIndicator size="small" color={colors.accentSecondary} style={{ flex: 1 }} />
-        ) : (
-          <>
-            <View style={styles.statBox}>
-              <ThemedText type="title" style={styles.statValue}>{totalPoints}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">Puntos Totales</ThemedText>
-            </View>
-            <View style={[styles.statBox, styles.statBorder, { borderColor: colors.border }]}>
-              <ThemedText type="title" style={styles.statValue}>{groupsCount}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">Mis Grupos</ThemedText>
-            </View>
-          </>
-        )}
-      </ThemedView>
-
-      {/* Accesos Rápidos */}
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
-        ACCESOS RÁPIDOS
-      </ThemedText>
-
-      <TouchableOpacity
-        style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
-        onPress={() => router.push('/fixture')}
-      >
-        <View>
-          <ThemedText type="smallBold" themeColor="text">📅 Ver Fixture Completo</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">Revisá los partidos y poné tus pronósticos</ThemedText>
+        <View style={styles.welcomeHeader}>
+          <ThemedText type="smallBold" themeColor="accentSecondary">
+            PANEL PRINCIPAL
+          </ThemedText>
+          <ThemedText type="subtitle" style={styles.username}>
+            ¡Hola, {user?.displayName || 'Jugador'}!
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" type="small">
+            Bienvenido al Prode con Amigos 2026.
+          </ThemedText>
         </View>
-      </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
-        onPress={() => router.push('/groups')}
-      >
-        <View>
-          <ThemedText type="smallBold" themeColor="text">👥 Mis Grupos con Amigos</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">Creá un grupo o unite a uno existente</ThemedText>
-        </View>
-      </TouchableOpacity>
+        {/* Tarjeta de Resumen Rápido Dinámica */}
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.statsCard, { borderColor: colors.border }]}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.accentSecondary} style={{ flex: 1 }} />
+          ) : (
+            <>
+              <View style={styles.statBox}>
+                <ThemedText type="title" style={styles.statValue}>{totalPoints}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">Puntos Totales</ThemedText>
+              </View>
+              <View style={[styles.statBox, styles.statBorder, { borderColor: colors.border }]}>
+                <ThemedText type="title" style={styles.statValue}>{groupsCount}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">Mis Grupos</ThemedText>
+              </View>
+            </>
+          )}
+        </ThemedView>
 
-      <TouchableOpacity
-        style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
-        onPress={() => router.push('/inbox')}
-      >
-        <View>
-          <ThemedText type="smallBold" themeColor="text">📬 Invitaciones Recibidas</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">Unite a las salas a las que fuiste invitado</ThemedText>
-        </View>
-      </TouchableOpacity>
-    </ScrollView>
+        {/* Accesos Rápidos */}
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
+          ACCESOS RÁPIDOS
+        </ThemedText>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+          onPress={() => router.push('/fixture')}
+        >
+          <View>
+            <ThemedText type="smallBold" themeColor="text">📅 Ver Fixture Completo</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">Revisá los partidos y poné tus pronósticos</ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+          onPress={() => router.push('/groups')}
+        >
+          <View>
+            <ThemedText type="smallBold" themeColor="text">👥 Mis Grupos con Amigos</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">Creá un grupo o unite a uno existente</ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+          onPress={() => router.push('/inbox')}
+        >
+          <View>
+            <ThemedText type="smallBold" themeColor="text">📬 Invitaciones Recibidas</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">Unite a las salas a las que fuiste invitado</ThemedText>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

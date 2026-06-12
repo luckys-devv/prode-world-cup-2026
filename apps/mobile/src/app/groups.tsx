@@ -9,7 +9,9 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, Link, useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing } from '../constants/theme';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
@@ -71,101 +73,109 @@ export default function GroupsScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}
     >
-      <View style={styles.header}>
-        <ThemedText type="subtitle" style={styles.title}>Mis Grupos 👥</ThemedText>
-        <ThemedText themeColor="textSecondary" type="small">
-          Competí con tus amigos pronosticando el Mundial.
-        </ThemedText>
-      </View>
-
-      <ThemedView
-        type="backgroundElement"
-        style={[styles.joinCard, { borderColor: colors.border }]}
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
       >
-        <ThemedText type="smallBold" style={styles.joinTitle}>Unirse con código</ThemedText>
-        <View style={styles.joinInputRow}>
-          <TextInput
-            placeholder="Ej: ABCDEF"
-            placeholderTextColor={colors.textSecondary}
-            value={joinCode}
-            onChangeText={setJoinCode}
-            autoCapitalize="characters"
-            style={[styles.input, {
-              backgroundColor: colors.backgroundSelected,
-              borderColor: colors.border,
-              color: colors.text
-            }]}
-          />
-          <TouchableOpacity
-            style={[styles.joinButton, joining && styles.buttonDisabled]}
-            onPress={handleJoinGroup}
-            disabled={joining}
-          >
-            {joining ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <ThemedText type="smallBold" style={styles.joinButtonText}>Unirse</ThemedText>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
-
-      <View style={styles.actionRow}>
-        <ThemedText type="smallBold" themeColor="textSecondary">MIS SALAS</ThemedText>
-        <Link href="/group/create" asChild>
-          <TouchableOpacity style={styles.createButton}>
-            <ThemedText type="smallBold" style={styles.createButtonText}>+ Crear Grupo</ThemedText>
-          </TouchableOpacity>
-        </Link>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.loader} />
-      ) : groups.length === 0 ? (
-        <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
-          <ThemedText style={styles.emptyText} themeColor="textSecondary">
-            Todavía no pertenecés a ningún grupo.{'\n'}
-            ¡Creá uno o unile usando un código!
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ThemedText type="subtitle" style={styles.title}>Mis Grupos</ThemedText>
+            <Ionicons name="people-outline" size={24} color={colors.accentSecondary} />
+          </View>
+          <ThemedText themeColor="textSecondary" type="small" style={{ marginTop: 4 }}>
+            Competí con tus amigos pronosticando el Mundial.
           </ThemedText>
-        </ThemedView>
-      ) : (
-        groups.map((group) => (
-          <Link href={`/group/${group.id}`} key={group.id} asChild>
+        </View>
+
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.joinCard, { borderColor: colors.border }]}
+        >
+          <ThemedText type="smallBold" style={styles.joinTitle}>Unirse con código</ThemedText>
+          <View style={styles.joinInputRow}>
+            <TextInput
+              placeholder="Ej: ABCDEF"
+              placeholderTextColor={colors.textSecondary}
+              value={joinCode}
+              onChangeText={setJoinCode}
+              autoCapitalize="characters"
+              style={[styles.input, {
+                backgroundColor: colors.backgroundSelected,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+            />
             <TouchableOpacity
-              style={StyleSheet.flatten([styles.groupCard, {
-                backgroundColor: colors.backgroundElement,
-                borderColor: colors.border
-              }])}
+              style={[styles.joinButton, joining && styles.buttonDisabled]}
+              onPress={handleJoinGroup}
+              disabled={joining}
             >
-              <View style={styles.groupCardHeader}>
-                <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
-                  {group.name}
-                </ThemedText>
-                <View style={[styles.membersBadge, { backgroundColor: 'rgba(0, 210, 255, 0.08)' }]}>
-                  <ThemedText type="code" style={styles.membersBadgeText}>
-                    👤 {group.memberCount} amigotes
-                  </ThemedText>
-                </View>
-              </View>
-              {group.prizeDescription && (
-                <ThemedText type="small" themeColor="textSecondary" style={styles.prizeText}>
-                  🏆 Premio: {group.prizeDescription}
-                </ThemedText>
+              {joining ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <ThemedText type="smallBold" style={styles.joinButtonText}>Unirse</ThemedText>
               )}
-              <View style={[styles.codeFooter, { borderColor: colors.border }]}>
-                <ThemedText type="code" themeColor="accentSecondary">
-                  Código: {group.inviteCode}
-                </ThemedText>
-              </View>
+            </TouchableOpacity>
+          </View>
+        </ThemedView>
+
+        <View style={styles.actionRow}>
+          <ThemedText type="smallBold" themeColor="textSecondary">MIS SALAS</ThemedText>
+          <Link href="/group/create" asChild>
+            <TouchableOpacity style={styles.createButton}>
+              <ThemedText type="smallBold" style={styles.createButtonText}>+ Crear Grupo</ThemedText>
             </TouchableOpacity>
           </Link>
-        ))
-      )}
-    </ScrollView>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.loader} />
+        ) : groups.length === 0 ? (
+          <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
+            <ThemedText style={styles.emptyText} themeColor="textSecondary">
+              Todavía no pertenecés a ningún grupo.{'\n'}
+              ¡Creá uno o unile usando un código!
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          groups.map((group) => (
+            <Link href={`/group/${group.id}`} key={group.id} asChild>
+              <TouchableOpacity
+                style={StyleSheet.flatten([styles.groupCard, {
+                  backgroundColor: colors.backgroundElement,
+                  borderColor: colors.border
+                }])}
+              >
+                <View style={styles.groupCardHeader}>
+                  <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
+                    {group.name}
+                  </ThemedText>
+                  <View style={[styles.membersBadge, { backgroundColor: 'rgba(0, 210, 255, 0.08)' }]}>
+                    <ThemedText type="code" style={styles.membersBadgeText}>
+                      👤 {group.memberCount} amigotes
+                    </ThemedText>
+                  </View>
+                </View>
+                {group.prizeDescription && (
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.prizeText}>
+                    🏆 Premio: {group.prizeDescription}
+                  </ThemedText>
+                )}
+                <View style={[styles.codeFooter, { borderColor: colors.border }]}>
+                  <ThemedText type="code" themeColor="accentSecondary">
+                    Código: {group.inviteCode}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+            </Link>
+          ))
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

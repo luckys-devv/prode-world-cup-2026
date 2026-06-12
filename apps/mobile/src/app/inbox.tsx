@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors, Spacing } from '../constants/theme';
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
@@ -54,69 +56,77 @@ export default function InboxScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}
     >
-      <View style={styles.header}>
-        <ThemedText type="subtitle" style={styles.title}>Bandeja de Entrada 📬</ThemedText>
-        <ThemedText themeColor="textSecondary" type="small">
-          Invitaciones que recibiste para unirte a grupos de prode.
-        </ThemedText>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.loader} />
-      ) : invitations.length === 0 ? (
-        <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
-          <ThemedText style={styles.emptyText} themeColor="textSecondary">
-            No tenés invitaciones pendientes por el momento.
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ThemedText type="subtitle" style={styles.title}>Bandeja de Entrada</ThemedText>
+            <Ionicons name="mail-unread-outline" size={24} color={colors.accentSecondary} />
+          </View>
+          <ThemedText themeColor="textSecondary" type="small" style={{ marginTop: 4 }}>
+            Invitaciones que recibiste para unirte a grupos de prode.
           </ThemedText>
-        </ThemedView>
-      ) : (
-        invitations.map((inv) => (
-          <ThemedView
-            key={inv.id}
-            type="backgroundElement"
-            style={[styles.invitationCard, { borderColor: colors.border }]}
-          >
-            <View style={styles.cardInfo}>
-              <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
-                {inv.groupName}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Invitado por: <ThemedText type="smallBold" themeColor="accentSecondary">{inv.senderName}</ThemedText>
-              </ThemedText>
-              <ThemedText type="code" themeColor="textSecondary" style={styles.dateText}>
-                {new Date(inv.createdAt).toLocaleDateString('es-AR')}
-              </ThemedText>
-            </View>
+        </View>
 
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.acceptBtn, actionId === inv.id && styles.btnDisabled]}
-                onPress={() => handleInvitationAction(inv.id, 'accept')}
-                disabled={actionId !== null}
-              >
-                {actionId === inv.id ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <ThemedText type="smallBold" style={styles.btnText}>Aceptar</ThemedText>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.rejectBtn, actionId === inv.id && styles.btnDisabled]}
-                onPress={() => handleInvitationAction(inv.id, 'reject')}
-                disabled={actionId !== null}
-              >
-                <ThemedText type="smallBold" style={styles.rejectBtnText}>Rechazar</ThemedText>
-              </TouchableOpacity>
-            </View>
+        {loading ? (
+          <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.loader} />
+        ) : invitations.length === 0 ? (
+          <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
+            <ThemedText style={styles.emptyText} themeColor="textSecondary">
+              No tenés invitaciones pendientes por el momento.
+            </ThemedText>
           </ThemedView>
-        ))
-      )}
-    </ScrollView>
+        ) : (
+          invitations.map((inv) => (
+            <ThemedView
+              key={inv.id}
+              type="backgroundElement"
+              style={[styles.invitationCard, { borderColor: colors.border }]}
+            >
+              <View style={styles.cardInfo}>
+                <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
+                  {inv.groupName}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Invitado por: <ThemedText type="smallBold" themeColor="accentSecondary">{inv.senderName}</ThemedText>
+                </ThemedText>
+                <ThemedText type="code" themeColor="textSecondary" style={styles.dateText}>
+                  {new Date(inv.createdAt).toLocaleDateString('es-AR')}
+                </ThemedText>
+              </View>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.acceptBtn, actionId === inv.id && styles.btnDisabled]}
+                  onPress={() => handleInvitationAction(inv.id, 'accept')}
+                  disabled={actionId !== null}
+                >
+                  {actionId === inv.id ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <ThemedText type="smallBold" style={styles.btnText}>Aceptar</ThemedText>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.rejectBtn, actionId === inv.id && styles.btnDisabled]}
+                  onPress={() => handleInvitationAction(inv.id, 'reject')}
+                  disabled={actionId !== null}
+                >
+                  <ThemedText type="smallBold" style={styles.rejectBtnText}>Rechazar</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </ThemedView>
+          ))
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

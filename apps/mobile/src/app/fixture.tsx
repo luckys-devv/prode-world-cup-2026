@@ -6,9 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Colors, Spacing } from '../constants/theme';
@@ -134,7 +135,7 @@ export default function FixtureScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.tabsContainer, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
           {STAGES.map((stage) => {
@@ -182,7 +183,7 @@ export default function FixtureScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

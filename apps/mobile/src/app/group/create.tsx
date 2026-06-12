@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
@@ -27,6 +28,8 @@ const showAlert = (title: string, message: string) => {
 };
 
 export default function CreateGroupScreen() {
+  const [isGroupStageEnded, setIsGroupStageEnded] = useState(false);
+  const isSubmitting = useRef(false);
   const [name, setName] = useState('');
   const [prizeDescription, setPrizeDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,6 +43,33 @@ export default function CreateGroupScreen() {
     champion: { enabled: true, points: 5 },
     showPredictionsBeforeStart: false,
   });
+
+  useEffect(() => {
+    const checkGroupStage = async () => {
+      try {
+        const response = await api.get('/matches?stage=GROUP_STAGE');
+        const groupStageMatches = response.data.data;
+        if (groupStageMatches && groupStageMatches.length > 0) {
+          const dates = groupStageMatches.map((m: any) => new Date(m.matchDate).getTime());
+          const maxDate = Math.max(...dates);
+          if (Date.now() >= maxDate) {
+            setIsGroupStageEnded(true);
+            // Si la fase de grupos ya terminó, forzar a deshabilitado
+            setScoringConfig((prev) => ({
+              ...prev,
+              champion: {
+                ...prev.champion,
+                enabled: false,
+              },
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error al verificar la fase de grupos:', error);
+      }
+    };
+    checkGroupStage();
+  }, []);
 
   const toggleConfig = (key: keyof Omit<ScoringConfig, 'showPredictionsBeforeStart'>) => {
     setScoringConfig((prev) => ({
@@ -63,12 +93,14 @@ export default function CreateGroupScreen() {
   };
 
   const handleCreateGroup = async () => {
+    if (isSubmitting.current) return;
     if (!name.trim()) {
       showAlert('Error', 'Por favor, ingresá el nombre del grupo.');
       return;
     }
 
     try {
+      isSubmitting.current = true;
       setLoading(true);
       const response = await api.post('/groups', {
         name: name.trim(),
@@ -77,191 +109,201 @@ export default function CreateGroupScreen() {
       });
 
       const newGroup = response.data.data;
-      // Navegamos silenciosamente al grupo creado
+      // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Ocurrió un error al crear el grupo.';
       showAlert('Error', errorMsg);
     } finally {
+      isSubmitting.current = false;
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right', 'bottom']}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ThemedText themeColor="accentSecondary" type="smallBold">← Volver</ThemedText>
-        </TouchableOpacity>
-        <ThemedText type="subtitle" style={[styles.title, { color: colors.text }]}>Crear Grupo 🏆</ThemedText>
-        <ThemedText themeColor="textSecondary" type="small">
-          Configurá la sala de juego y sus reglas.
-        </ThemedText>
-      </View>
-
-      {/* Ajustes Generales */}
-      <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
-        <ThemedText type="smallBold" style={styles.sectionTitle}>Ajustes Generales</ThemedText>
-
-        <View style={styles.inputGroup}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
-            Nombre del Grupo
-          </ThemedText>
-          <TextInput
-            style={[styles.input, {
-              backgroundColor: colors.backgroundSelected,
-              borderColor: colors.border,
-              color: colors.text
-            }]}
-            placeholder="Ej: Los Pibes del Laburo"
-            placeholderTextColor={colors.textSecondary}
-            value={name}
-            onChangeText={setName}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
-            Premio para el Ganador (Opcional)
-          </ThemedText>
-          <TextInput
-            style={[styles.input, {
-              backgroundColor: colors.backgroundSelected,
-              borderColor: colors.border,
-              color: colors.text
-            }]}
-            placeholder="Ej: Un asado / Fernet de oro"
-            placeholderTextColor={colors.textSecondary}
-            value={prizeDescription}
-            onChangeText={setPrizeDescription}
-          />
-        </View>
-      </ThemedView>
-
-      {/* Reglas de Puntaje */}
-      <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
-        <ThemedText type="smallBold" style={styles.sectionTitle}>Reglas de Puntaje</ThemedText>
-
-        {/* 1. Ganador / Empate */}
-        <View style={styles.ruleRow}>
-          <View style={styles.ruleInfo}>
-            <ThemedText type="smallBold">Acertar Ganador o Empate</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Predicción básica (Local/Empate/Visita)
-            </ThemedText>
-          </View>
-          <View style={styles.ruleControls}>
-            {scoringConfig.winnerPrediction.enabled && (
-              <TextInput
-                style={[styles.pointsInput, {
-                  backgroundColor: colors.backgroundSelected,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                keyboardType="number-pad"
-                value={String(scoringConfig.winnerPrediction.points)}
-                onChangeText={(val) => updatePoints('winnerPrediction', val)}
-              />
-            )}
-            <Switch
-              value={scoringConfig.winnerPrediction.enabled}
-              onValueChange={() => toggleConfig('winnerPrediction')}
-              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
-            />
-          </View>
-        </View>
-
-        {/* 2. Resultado Exacto */}
-        <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
-          <View style={styles.ruleInfo}>
-            <ThemedText type="smallBold">Acertar Score Exacto</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Puntos extras por acertar goles (Ej: 2-1)
-            </ThemedText>
-          </View>
-          <View style={styles.ruleControls}>
-            {scoringConfig.exactScore.enabled && (
-              <TextInput
-                style={[styles.pointsInput, {
-                  backgroundColor: colors.backgroundSelected,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                keyboardType="number-pad"
-                value={String(scoringConfig.exactScore.points)}
-                onChangeText={(val) => updatePoints('exactScore', val)}
-              />
-            )}
-            <Switch
-              value={scoringConfig.exactScore.enabled}
-              onValueChange={() => toggleConfig('exactScore')}
-              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
-            />
-          </View>
-        </View>
-
-        {/* 3. Campeón */}
-        <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
-          <View style={styles.ruleInfo}>
-            <ThemedText type="smallBold">Acertar Campeón del Mundo</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Se calcula al finalizar el torneo
-            </ThemedText>
-          </View>
-          <View style={styles.ruleControls}>
-            {scoringConfig.champion.enabled && (
-              <TextInput
-                style={[styles.pointsInput, {
-                  backgroundColor: colors.backgroundSelected,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                keyboardType="number-pad"
-                value={String(scoringConfig.champion.points)}
-                onChangeText={(val) => updatePoints('champion', val)}
-              />
-            )}
-            <Switch
-              value={scoringConfig.champion.enabled}
-              onValueChange={() => toggleConfig('champion')}
-              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
-            />
-          </View>
-        </View>
-
-        {/* 4. Privacidad */}
-        <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
-          <View style={styles.ruleInfo}>
-            <ThemedText type="smallBold">Ver pronósticos antes de empezar</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Mostrar predicciones ajenas antes del silbatazo
-            </ThemedText>
-          </View>
-          <Switch
-            value={scoringConfig.showPredictionsBeforeStart}
-            onValueChange={(val) =>
-              setScoringConfig((prev) => ({ ...prev, showPredictionsBeforeStart: val }))
-            }
-            trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
-          />
-        </View>
-      </ThemedView>
-
-      <TouchableOpacity
-        style={[styles.submitButton, loading && styles.buttonDisabled]}
-        onPress={handleCreateGroup}
-        disabled={loading}
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
       >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <ThemedText type="smallBold" style={styles.submitText}>Crear Grupo</ThemedText>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ThemedText themeColor="accentSecondary" type="smallBold">← Volver</ThemedText>
+          </TouchableOpacity>
+          <ThemedText type="subtitle" style={[styles.title, { color: colors.text }]}>Crear Grupo 🏆</ThemedText>
+          <ThemedText themeColor="textSecondary" type="small">
+            Configurá la sala de juego y sus reglas.
+          </ThemedText>
+        </View>
+
+        {/* Ajustes Generales */}
+        <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
+          <ThemedText type="smallBold" style={styles.sectionTitle}>Ajustes Generales</ThemedText>
+
+          <View style={styles.inputGroup}>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
+              Nombre del Grupo
+            </ThemedText>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: colors.backgroundSelected,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+              placeholder="Ej: Los Pibes del Laburo"
+              placeholderTextColor={colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
+              Premio para el Ganador (Opcional)
+            </ThemedText>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: colors.backgroundSelected,
+                borderColor: colors.border,
+                color: colors.text
+              }]}
+              placeholder="Ej: Un asado / Fernet de oro"
+              placeholderTextColor={colors.textSecondary}
+              value={prizeDescription}
+              onChangeText={setPrizeDescription}
+            />
+          </View>
+        </ThemedView>
+
+        {/* Reglas de Puntaje */}
+        <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
+          <ThemedText type="smallBold" style={styles.sectionTitle}>Reglas de Puntaje</ThemedText>
+
+          {/* 1. Ganador / Empate */}
+          <View style={styles.ruleRow}>
+            <View style={styles.ruleInfo}>
+              <ThemedText type="smallBold">Acertar Ganador o Empate</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Predicción básica (Local/Empate/Visita)
+              </ThemedText>
+            </View>
+            <View style={styles.ruleControls}>
+              {scoringConfig.winnerPrediction.enabled && (
+                <TextInput
+                  style={[styles.pointsInput, {
+                    backgroundColor: colors.backgroundSelected,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }]}
+                  keyboardType="number-pad"
+                  value={String(scoringConfig.winnerPrediction.points)}
+                  onChangeText={(val) => updatePoints('winnerPrediction', val)}
+                />
+              )}
+              <Switch
+                value={scoringConfig.winnerPrediction.enabled}
+                onValueChange={() => toggleConfig('winnerPrediction')}
+                trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
+              />
+            </View>
+          </View>
+
+          {/* 2. Resultado Exacto */}
+          <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
+            <View style={styles.ruleInfo}>
+              <ThemedText type="smallBold">Acertar Score Exacto</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Puntos extras por acertar goles (Ej: 2-1)
+              </ThemedText>
+            </View>
+            <View style={styles.ruleControls}>
+              {scoringConfig.exactScore.enabled && (
+                <TextInput
+                  style={[styles.pointsInput, {
+                    backgroundColor: colors.backgroundSelected,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }]}
+                  keyboardType="number-pad"
+                  value={String(scoringConfig.exactScore.points)}
+                  onChangeText={(val) => updatePoints('exactScore', val)}
+                />
+              )}
+              <Switch
+                value={scoringConfig.exactScore.enabled}
+                onValueChange={() => toggleConfig('exactScore')}
+                trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
+              />
+            </View>
+          </View>
+
+          {/* 3. Campeón */}
+          <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
+            <View style={styles.ruleInfo}>
+              <ThemedText type="smallBold">Acertar Campeón del Mundo</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {isGroupStageEnded
+                  ? 'Inhabilitado (la fase de grupos ya terminó)'
+                  : 'Se calcula al finalizar el torneo'}
+              </ThemedText>
+            </View>
+            <View style={styles.ruleControls}>
+              {scoringConfig.champion.enabled && (
+                <TextInput
+                  style={[styles.pointsInput, {
+                    backgroundColor: colors.backgroundSelected,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }]}
+                  keyboardType="number-pad"
+                  value={String(scoringConfig.champion.points)}
+                  onChangeText={(val) => updatePoints('champion', val)}
+                  editable={!isGroupStageEnded}
+                />
+              )}
+              <Switch
+                value={scoringConfig.champion.enabled}
+                onValueChange={() => toggleConfig('champion')}
+                trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
+                disabled={isGroupStageEnded}
+              />
+            </View>
+          </View>
+
+          {/* 4. Privacidad */}
+          <View style={[styles.ruleRow, styles.borderRow, { borderColor: colors.border }]}>
+            <View style={styles.ruleInfo}>
+              <ThemedText type="smallBold">Ver pronósticos antes de empezar</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Mostrar predicciones ajenas antes del silbatazo
+              </ThemedText>
+            </View>
+            <Switch
+              value={scoringConfig.showPredictionsBeforeStart}
+              onValueChange={(val) =>
+                setScoringConfig((prev) => ({ ...prev, showPredictionsBeforeStart: val }))
+              }
+              trackColor={{ false: colors.backgroundSelected, true: colors.accentPrimary }}
+            />
+          </View>
+        </ThemedView>
+
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.buttonDisabled]}
+          onPress={handleCreateGroup}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <ThemedText type="smallBold" style={styles.submitText}>Crear Grupo</ThemedText>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
