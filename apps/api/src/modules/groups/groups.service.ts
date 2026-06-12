@@ -8,6 +8,20 @@ import { CreateGroupInput } from './groups.validation.js';
 export async function createGroup(userId: number, input: CreateGroupInput) {
   const { name, prizeDescription, scoringConfig } = input;
 
+  // Validamos si la fase de grupos ya terminó para forzar deshabilitar la opción de campeón
+  const lastGroupStageMatch = await db.match.findFirst({
+    where: { stage: 'GROUP_STAGE' },
+    orderBy: { matchDate: 'desc' },
+  });
+  const isGroupStageEnded = lastGroupStageMatch && new Date() >= new Date(lastGroupStageMatch.matchDate);
+  const finalScoringConfig = {
+    ...scoringConfig,
+    champion: {
+      ...scoringConfig.champion,
+      enabled: isGroupStageEnded ? false : scoringConfig.champion.enabled,
+    },
+  };
+
   // Generamos un código de invitación único
   let inviteCode = '';
   let isUnique = false;
@@ -31,7 +45,7 @@ export async function createGroup(userId: number, input: CreateGroupInput) {
         inviteCode,
         prizeDescription,
         creatorId: userId,
-        scoringConfig: scoringConfig as any, // Lo casteamos para guardarlo como Json en Postgres
+        scoringConfig: finalScoringConfig as any,
       },
     });
 

@@ -165,17 +165,21 @@ export async function createOrUpdateChampionPrediction(userId: number, groupId: 
     throw error;
   }
 
-  // 2. Validar que el mundial no haya comenzado (bloqueo por horario del 1° partido)
-  const earliestMatch = await db.match.findFirst({
-    orderBy: { matchDate: 'asc' },
+  // 2. Validar que la fase de grupos no haya terminado (bloqueo por horario del último partido de fase de grupos)
+  const lastGroupStageMatch = await db.match.findFirst({
+    where: { stage: 'GROUP_STAGE' },
+    orderBy: { matchDate: 'desc' },
   });
 
-  if (earliestMatch && new Date() >= new Date(earliestMatch.matchDate)) {
-    const error = new Error('No puedes elegir o cambiar el campeón una vez que el mundial ha comenzado.') as any;
+  const deadline = lastGroupStageMatch
+    ? new Date(lastGroupStageMatch.matchDate)
+    : null;
+
+  if (deadline && new Date() >= deadline) {
+    const error = new Error('No puedes elegir o cambiar el campeón una vez que la fase de grupos ha finalizado.') as any;
     error.statusCode = 403;
     throw error;
   }
-
   // 3. Registrar o actualizar la predicción
   return await db.championPrediction.upsert({
     where: {
