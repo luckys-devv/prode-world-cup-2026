@@ -1,0 +1,17 @@
+{
+  "short_name": "Prode con Amigos",
+  "name": "Prode con Amigos - Mundial 2026",
+  "description": "App de pronósticos del Mundial de la FIFA 2026 con amigos",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0A0E1A",
+  "background_color": "#0A0E1A"
+}
