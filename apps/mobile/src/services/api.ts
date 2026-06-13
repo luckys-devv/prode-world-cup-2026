@@ -19,6 +19,9 @@ export const API_URL = __DEV__
     default: 'http://localhost:3001/api',
   })
   : 'https://prode-world-cup-2026-production.up.railway.app/api';
+// Forzar temporalmente producción para validar la conexión
+//export const API_URL = 'https://prode-world-cup-2026-production.up.railway.app/api';
+
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -68,8 +71,14 @@ api.interceptors.response.use(
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return api(originalRequest);
+            // Reintentar con una copia limpia de la configuración para evitar el putisimo network error de axios
+            return api({
+              ...originalRequest,
+              headers: {
+                ...originalRequest.headers,
+                Authorization: `Bearer ${token}`,
+              },
+            });
           })
           .catch((err) => Promise.reject(err));
       }
@@ -98,9 +107,14 @@ api.interceptors.response.use(
         processQueue(null, newAccessToken);
         isRefreshing = false;
 
-        // Reintentar petición original
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        return api(originalRequest);
+        // Reintentar petición original con una copia limpia de la configuración
+        return api({
+          ...originalRequest,
+          headers: {
+            ...originalRequest.headers,
+            Authorization: `Bearer ${newAccessToken}`,
+          },
+        });
       } catch (refreshError) {
         processQueue(refreshError, null);
         isRefreshing = false;
