@@ -112,7 +112,7 @@ export default function CreateGroupScreen() {
       // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Ocurrió un error al crear el grupo.';
+      const errorMsg = error.response?.data?.message || error.message || 'Ocurrió un error al crear el grupo.';
       showAlert('Error', errorMsg);
     } finally {
       isSubmitting.current = false;
