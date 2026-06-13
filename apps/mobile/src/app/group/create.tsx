@@ -112,8 +112,18 @@ export default function CreateGroupScreen() {
       // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.message || 'Ocurrió un error al crear el grupo.';
-      showAlert('Error', errorMsg);
+      let details = '';
+      if (error.response) {
+        details = `Estado Respuesta: ${error.response.status}\nDatos: ${JSON.stringify(error.response.data)}`;
+      } else if (error.request) {
+        // XMLHttpRequest en React Native
+        details = `Sin respuesta. XMLHttp Status: ${error.request.status}\nReadyState: ${error.request.readyState}`;
+      } else {
+        details = `Error configuración: ${error.message}`;
+      }
+
+      const errorMsg = `Mensaje: ${error.message}\nCódigo: ${error.code}\n\n${details}`;
+      showAlert('Diagnóstico de Error', errorMsg);
     } finally {
       isSubmitting.current = false;
       setLoading(false);
