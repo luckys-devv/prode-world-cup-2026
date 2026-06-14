@@ -30,12 +30,31 @@ export async function getMatches(filters: MatchFilters) {
 
   return await db.match.findMany({
     where: whereClause,
-    include: {
-      homeTeam: true,
-      awayTeam: true,
+    select: {
+      id: true,
+      matchDate: true,
+      status: true,
+      stage: true,
+      groupName: true,
+      homeScore: true,
+      awayScore: true,
+      homeTeam: {
+        select: {
+          id: true,
+          name: true,
+          crestUrl: true,
+        },
+      },
+      awayTeam: {
+        select: {
+          id: true,
+          name: true,
+          crestUrl: true,
+        },
+      },
     },
     orderBy: {
-      matchDate: 'asc', // Ordenamos del más antiguo al más reciente
+      matchDate: 'asc',
     },
   });
 }
