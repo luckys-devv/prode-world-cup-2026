@@ -112,6 +112,17 @@ export default function CreateGroupScreen() {
       // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
+      // el grupo se creó (201) pero Axios lo trató como error de red
+      if (error.request?.status === 201) {
+        try {
+          const data = JSON.parse(error.request.responseText);
+          router.replace(`/group/${data.data.id}`);
+        } catch {
+          router.replace('/groups');
+        }
+        return;
+      }
+
       let details = '';
       if (error.response) {
         details = `Estado Respuesta: ${error.response.status}\nDatos: ${JSON.stringify(error.response.data)}`;
