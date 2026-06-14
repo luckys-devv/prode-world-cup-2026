@@ -10,11 +10,14 @@ async function bootstrap() {
     await db.$connect();
     console.log('✅ La conexion va como caniooo.');
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
       console.log(`📡 Entorno: ${env.NODE_ENV}`);
       initCronJobs();
+
     });
+    server.keepAliveTimeout = 120 * 1000; // 120 segundos
+    server.headersTimeout = 125 * 1000; // Siempre mayor a keepalive
   } catch (error) {
     console.error('❌ Error fatal al iniciar el servidor:', error);
     await db.$disconnect();

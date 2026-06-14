@@ -18,7 +18,7 @@ export function sendSuccess<T>(res: Response, data: T, message?: string, statusC
 }
 
 export function sendCreated<T>(res: Response, data: T, message?: string) {
-  sendSuccess(res, data, message, 201);
+  sendSuccess(res, data, message, 200);
 }
 
 // ─── RESPUESTAS DE ERROR ───────────────────────────
