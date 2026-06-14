@@ -85,6 +85,9 @@ export default function GroupDetailScreen() {
   const [saveStates, setSaveStates] = useState<{ [matchId: number]: 'idle' | 'saving' | 'saved' | 'error' }>({});
   const debounceTimers = useRef<{ [matchId: number]: any }>({});
 
+  // Caché de partidos por etapa para evitar re-fetches innecesarios
+  const matchesCache = useRef<{ [stage: string]: Match[] }>({});
+
   // Selección de campeón
   const [teams, setTeams] = useState<any[]>([]);
   const [championId, setChampionId] = useState<number | null>(null);
@@ -134,27 +137,56 @@ export default function GroupDetailScreen() {
     if (!id) return;
     try {
       setLoadingPredictions(true);
-      const [matchesRes, predsRes] = await Promise.all([
-        api.get(`/matches?stage=${selectedStage}`),
-        api.get(`/predictions/group/${id}`),
-      ]);
 
-      const fetchedMatches = matchesRes.data.data as Match[];
-      const fetchedPreds = predsRes.data.data as any[];
+      const cachedMatches = matchesCache.current[selectedStage];
+      let fetchedMatches: Match[];
 
-      const initialPredsState: PredictionState = {};
-      fetchedMatches.forEach((match) => {
-        const matchingPred = fetchedPreds.find((p) => p.matchId === match.id);
-        initialPredsState[match.id] = {
-          prediction: matchingPred ? matchingPred.prediction : null,
-          predictedHomeScore: matchingPred && matchingPred.predictedHomeScore !== null ? String(matchingPred.predictedHomeScore) : '',
-          predictedAwayScore: matchingPred && matchingPred.predictedAwayScore !== null ? String(matchingPred.predictedAwayScore) : '',
-          isSaved: true,
-        };
-      });
+      if (cachedMatches) {
+        // Matches ya cacheados: solo pedimos las predicciones
+        fetchedMatches = cachedMatches;
+        const predsRes = await api.get(`/predictions/group/${id}`);
+        const fetchedPreds = predsRes.data.data as any[];
 
-      setMatches(fetchedMatches);
-      setPredictions(initialPredsState);
+        const initialPredsState: PredictionState = {};
+        fetchedMatches.forEach((match) => {
+          const matchingPred = fetchedPreds.find((p) => p.matchId === match.id);
+          initialPredsState[match.id] = {
+            prediction: matchingPred ? matchingPred.prediction : null,
+            predictedHomeScore: matchingPred && matchingPred.predictedHomeScore !== null ? String(matchingPred.predictedHomeScore) : '',
+            predictedAwayScore: matchingPred && matchingPred.predictedAwayScore !== null ? String(matchingPred.predictedAwayScore) : '',
+            isSaved: true,
+          };
+        });
+
+        setMatches(fetchedMatches);
+        setPredictions(initialPredsState);
+      } else {
+        // Primera vez en esta etapa: pedimos todo junto
+        const [matchesRes, predsRes] = await Promise.all([
+          api.get(`/matches?stage=${selectedStage}`),
+          api.get(`/predictions/group/${id}`),
+        ]);
+
+        fetchedMatches = matchesRes.data.data as Match[];
+        const fetchedPreds = predsRes.data.data as any[];
+
+        // Guardamos en caché para próximas visitas
+        matchesCache.current[selectedStage] = fetchedMatches;
+
+        const initialPredsState: PredictionState = {};
+        fetchedMatches.forEach((match) => {
+          const matchingPred = fetchedPreds.find((p) => p.matchId === match.id);
+          initialPredsState[match.id] = {
+            prediction: matchingPred ? matchingPred.prediction : null,
+            predictedHomeScore: matchingPred && matchingPred.predictedHomeScore !== null ? String(matchingPred.predictedHomeScore) : '',
+            predictedAwayScore: matchingPred && matchingPred.predictedAwayScore !== null ? String(matchingPred.predictedAwayScore) : '',
+            isSaved: true,
+          };
+        });
+
+        setMatches(fetchedMatches);
+        setPredictions(initialPredsState);
+      }
     } catch (error) {
       console.error('Error al cargar fixture y predicciones:', error);
     } finally {
