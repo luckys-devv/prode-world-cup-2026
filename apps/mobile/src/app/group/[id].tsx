@@ -88,6 +88,13 @@ export default function GroupDetailScreen() {
   // Caché de partidos por etapa para evitar re-fetches innecesarios
   const matchesCache = useRef<{ [stage: string]: Match[] }>({});
 
+  //evitar re-fetch del campeón si ya fue cargado
+  const championDataLoaded = useRef(false);
+
+  //throttle del leaderboard (solo refrescar cada 30 segundos)
+  const lastGroupFetchTime = useRef<number>(0);
+  const REFRESH_INTERVAL = 30_000;
+
   // Selección de campeón
   const [teams, setTeams] = useState<any[]>([]);
   const [championId, setChampionId] = useState<number | null>(null);
@@ -228,8 +235,12 @@ export default function GroupDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (id) {
+      if (!id) return;
+      const now = Date.now();
+      // Solo refrescamos si pasaron más de 30 segundos desde la última vez
+      if (now - lastGroupFetchTime.current > REFRESH_INTERVAL) {
         fetchGroupData();
+        lastGroupFetchTime.current = now;
       }
     }, [id])
   );
@@ -238,11 +249,13 @@ export default function GroupDetailScreen() {
     useCallback(() => {
       if (activeTab === 'predictions') {
         fetchPredictionsData();
-        if (group?.scoringConfig?.champion?.enabled) {
+        // Solo cargamos el campeón una vez por sesión en este grupo
+        if (!championDataLoaded.current) {
           fetchChampionData();
+          championDataLoaded.current = true;
         }
       }
-    }, [activeTab, selectedStage, id, group?.scoringConfig?.champion?.enabled])
+    }, [activeTab, selectedStage, id])
   );
 
   const handleSendInvite = async () => {
