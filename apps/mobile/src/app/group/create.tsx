@@ -112,31 +112,15 @@ export default function CreateGroupScreen() {
       // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
-      // Railway + React Native + Axios: el XHR completa con 200 pero dispara onerror
-      // El grupo YA FUE CREADO, así que rescatamos la respuesta y navegamos igual
-      if (error.request?.status === 200 || error.request?.status === 201) {
-        try {
-          const data = JSON.parse(error.request.responseText);
-          router.replace(`/group/${data.data.id}`);
-          return;
-        } catch {
-          // Si no se puede parsear, al menos llevamos a la lista de grupos
-          router.replace('/groups');
-          return;
-        }
-      }
-      let details = '';
-      if (error.response) {
-        details = `Estado Respuesta: ${error.response.status}\nDatos: ${JSON.stringify(error.response.data)}`;
-      } else if (error.request) {
-        // XMLHttpRequest en React Native
-        details = `Sin respuesta. XMLHttp Status: ${error.request.status}\nReadyState: ${error.request.readyState}`;
-      } else {
-        details = `Error configuración: ${error.message}`;
-      }
+      const statusReal = error.request?.status;
+      const readyState = error.request?.readyState;
+      const responseText = error.request?.responseText;
 
-      const errorMsg = `Mensaje: ${error.message}\nCódigo: ${error.code}\n\n${details}`;
-      showAlert('Diagnóstico de Error', errorMsg);
+      showAlert(
+        'DEBUG',
+        `Status: ${statusReal}\nReadyState: ${readyState}\nResponseText: ${responseText?.substring(0, 100)}`
+      );
+      return;
     } finally {
       isSubmitting.current = false;
       setLoading(false);
