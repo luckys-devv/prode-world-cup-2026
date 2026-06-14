@@ -29,6 +29,8 @@ export async function listGroupsHandler(req: Request, res: Response, next: NextF
   try {
     const userId = req.user!.userId;
     const groups = await groupsService.getUserGroups(userId);
+    // Extraemos los IDs de los grupos actuales del usuario
+    const groupIds = groups.map((g) => g.id);
 
     // Consulta de agregación ultra rápida en la BD
     const pointsAggregation = await db.matchPrediction.aggregate({
@@ -38,6 +40,7 @@ export async function listGroupsHandler(req: Request, res: Response, next: NextF
       },
       where: {
         userId,
+        groupId: { in: groupIds },
       },
     });
     const totalPoints = (pointsAggregation._sum.winnerPoints ?? 0) + (pointsAggregation._sum.exactScorePoints ?? 0);
@@ -53,16 +56,6 @@ export async function listGroupsHandler(req: Request, res: Response, next: NextF
     next(error);
   }
 }
-
-//export async function listGroupsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-//  try {
-//    const userId = req.user!.userId;
-//    const groups = await groupsService.getUserGroups(userId);
-//    sendSuccess(res, groups, 'Grupos obtenidos con éxito.');
-//  } catch (error) {
-//    next(error);
-//  }
-//}
 
 /**
  * Obtiene el detalle de un grupo (miembros y configuración).
