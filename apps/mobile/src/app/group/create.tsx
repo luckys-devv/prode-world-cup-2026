@@ -112,15 +112,38 @@ export default function CreateGroupScreen() {
       // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
-      const statusReal = error.request?.status;
-      const readyState = error.request?.readyState;
-      const responseText = error.request?.responseText;
+      // HTTP/2 stream reset de Railway: el grupo SÍ fue creado (status 200)
+      // pero OkHttp cancela el stream antes de que Axios pueda leer la respuesta
+      if (error.request?.status === 200 || error.request?.status === 201) {
+        try {
+          // Buscamos los grupos del usuario para encontrar el recién creado
+          const groupsRes = await api.get('/groups');
+          const groups = groupsRes.data.data;
+          if (groups && groups.length > 0) {
+            // Están ordenados por fecha desc, el primero es el más nuevo
+            router.replace(`/group/${groups[0].id}`);
+          } else {
+            router.replace('/groups');
+          }
+        } catch {
+          router.replace('/groups');
+        }
+        return;
+      }
 
-      showAlert(
-        'DEBUG',
-        `Status: ${statusReal}\nReadyState: ${readyState}\nResponseText: ${responseText?.substring(0, 100)}`
-      );
-      return;
+
+      let details = '';
+      if (error.response) {
+        details = `Estado Respuesta: ${error.response.status}\nDatos: ${JSON.stringify(error.response.data)}`;
+      } else if (error.request) {
+        // XMLHttpRequest en React Native
+        details = `Sin respuesta. XMLHttp Status: ${error.request.status}\nReadyState: ${error.request.readyState}`;
+      } else {
+        details = `Error configuración: ${error.message}`;
+      }
+
+      const errorMsg = `Mensaje: ${error.message}\nCódigo: ${error.code}\n\n${details}`;
+      showAlert('Diagnóstico de Error', errorMsg);
     } finally {
       isSubmitting.current = false;
       setLoading(false);
