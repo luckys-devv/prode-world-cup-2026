@@ -112,17 +112,19 @@ export default function CreateGroupScreen() {
       // Navegamos al grupo creado
       router.replace(`/group/${newGroup.id}`);
     } catch (error: any) {
-      // el grupo se creó (201) pero Axios lo trató como error de red
-      if (error.request?.status === 201) {
+      // Railway + React Native + Axios: el XHR completa con 200 pero dispara onerror
+      // El grupo YA FUE CREADO, así que rescatamos la respuesta y navegamos igual
+      if (error.request?.status === 200 || error.request?.status === 201) {
         try {
           const data = JSON.parse(error.request.responseText);
           router.replace(`/group/${data.data.id}`);
+          return;
         } catch {
+          // Si no se puede parsear, al menos llevamos a la lista de grupos
           router.replace('/groups');
+          return;
         }
-        return;
       }
-
       let details = '';
       if (error.response) {
         details = `Estado Respuesta: ${error.response.status}\nDatos: ${JSON.stringify(error.response.data)}`;
