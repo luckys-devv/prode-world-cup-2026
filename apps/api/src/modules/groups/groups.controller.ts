@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as groupsService from './groups.service.js';
 import { createGroupSchema } from './groups.validation.js';
 import { sendSuccess, sendCreated, sendBadRequest } from '../../utils/apiResponse.js';
+import { db } from '../../config/database.js';
 
 /**
  * Crea un grupo validando la configuración de puntaje.
@@ -28,11 +29,40 @@ export async function listGroupsHandler(req: Request, res: Response, next: NextF
   try {
     const userId = req.user!.userId;
     const groups = await groupsService.getUserGroups(userId);
-    sendSuccess(res, groups, 'Grupos obtenidos con éxito.');
+
+    // Consulta de agregación ultra rápida en la BD
+    const pointsAggregation = await db.matchPrediction.aggregate({
+      _sum: {
+        winnerPoints: true,
+        exactScorePoints: true,
+      },
+      where: {
+        userId,
+      },
+    });
+    const totalPoints = (pointsAggregation._sum.winnerPoints ?? 0) + (pointsAggregation._sum.exactScorePoints ?? 0);
+
+    // Devolvemos los grupos y el total de puntos en la raíz de la respuesta
+    res.status(200).json({
+      success: true,
+      data: groups,
+      totalPoints,
+      message: 'Grupos obtenidos con éxito.',
+    });
   } catch (error) {
     next(error);
   }
 }
+
+//export async function listGroupsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+//  try {
+//    const userId = req.user!.userId;
+//    const groups = await groupsService.getUserGroups(userId);
+//    sendSuccess(res, groups, 'Grupos obtenidos con éxito.');
+//  } catch (error) {
+//    next(error);
+//  }
+//}
 
 /**
  * Obtiene el detalle de un grupo (miembros y configuración).
