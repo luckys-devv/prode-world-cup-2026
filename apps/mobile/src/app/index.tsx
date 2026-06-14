@@ -26,22 +26,10 @@ export default function HomeScreen() {
           setLoading(true);
           const groupsRes = await api.get('/groups');
           const userGroups = groupsRes.data.data;
+
           setGroupsCount(userGroups.length);
-          let pointsSum = 0;
-          await Promise.all(
-            userGroups.map(async (group: any) => {
-              try {
-                const lbRes = await api.get(`/groups/${group.id}/leaderboard`);
-                const myEntry = lbRes.data.data.find((e: any) => e.userId === user.id);
-                if (myEntry) {
-                  pointsSum += myEntry.puntosTotales;
-                }
-              } catch (err) {
-                console.error(`Error al obtener puntos del grupo ${group.id}:`, err);
-              }
-            })
-          );
-          setTotalPoints(pointsSum);
+          // Leemos el total calculado directamente desde el backend
+          setTotalPoints(groupsRes.data.totalPoints ?? 0);
         } catch (error) {
           console.error('Error al cargar datos del dashboard:', error);
         } finally {
