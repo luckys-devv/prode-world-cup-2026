@@ -85,6 +85,10 @@ export default function GroupDetailScreen() {
   const [saveStates, setSaveStates] = useState<{ [matchId: number]: 'idle' | 'saving' | 'saved' | 'error' }>({});
   const debounceTimers = useRef<{ [matchId: number]: any }>({});
 
+  // Acceder a la preddicion mas cercana sin 
+  const predictionsRef = useRef(predictions);
+  useEffect(() => { predictionsRef.current = predictions; }, [predictions]);
+
   // Caché de partidos por etapa para evitar re-fetches innecesarios
   const matchesCache = useRef<{ [stage: string]: Match[] }>({});
 
@@ -317,7 +321,7 @@ export default function GroupDetailScreen() {
     return 'DRAW';
   };
 
-  const updateLocalScore = (matchId: number, field: 'predictedHomeScore' | 'predictedAwayScore', value: string) => {
+  const updateLocalScore = useCallback((matchId: number, field: 'predictedHomeScore' | 'predictedAwayScore', value: string) => {
     // Sanitizar entrada: permitir solo números enteros
     const cleanValue = value.replace(/[^0-9]/g, '');
 
@@ -345,8 +349,8 @@ export default function GroupDetailScreen() {
       };
     });
 
-    // 2. Lógica de auto-guardado en caliente con debouncing (800ms) ejecutada fuera del render path
-    const current = predictions[matchId] || {
+    // 2. Lógica de auto-guardado con debouncing (800ms) — usa predictionsRef para no depender del estado
+    const current = predictionsRef.current[matchId] || {
       prediction: null,
       predictedHomeScore: '',
       predictedAwayScore: '',
@@ -403,7 +407,7 @@ export default function GroupDetailScreen() {
         }
       }, 800);
     }
-  };
+  }, [id]); // Solo depende de id — predictions se lee via predictionsRef
 
   const handleSaveChampion = async (teamId: number) => {
     if (!teamId) return;
