@@ -8,13 +8,15 @@ import { sendSuccess, sendNotFound, sendBadRequest } from '../../utils/apiRespon
  */
 export async function listMatches(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { stage, status, groupName, date } = req.query;
+    const { stage, status, groupName, date, dateFrom, dateTo } = req.query;
 
     const filters = {
       stage: stage ? String(stage) : undefined,
       status: status ? String(status) : undefined,
       groupName: groupName ? String(groupName) : undefined,
       date: date ? String(date) : undefined,
+      dateFrom: dateFrom ? String(dateFrom) : undefined,
+      dateTo: dateTo ? String(dateTo) : undefined,
     };
 
     const matches = await matchesService.getMatches(filters);

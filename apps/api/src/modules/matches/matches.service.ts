@@ -5,13 +5,15 @@ interface MatchFilters {
   status?: string;
   groupName?: string;
   date?: string; // Formato YYYY-MM-DD
+  dateFrom?: string; // ISO 8601 (con zona horaria del cliente)
+  dateTo?: string;   // ISO 8601
 }
 
 /**
  * Obtiene el listado de partidos aplicando los filtros opcionales.
  */
 export async function getMatches(filters: MatchFilters) {
-  const { stage, status, groupName, date } = filters;
+  const { stage, status, groupName, date, dateFrom, dateTo } = filters;
   const whereClause: any = {};
 
   if (stage) whereClause.stage = stage;
@@ -19,13 +21,20 @@ export async function getMatches(filters: MatchFilters) {
   if (groupName) whereClause.groupName = groupName;
 
   if (date) {
-    // Si viene fecha, buscamos los partidos ocurridos en ese rango de 24 horas en UTC
+    // Filtro por día exacto en UTC
     const startDate = new Date(`${date}T00:00:00.000Z`);
     const endDate = new Date(`${date}T23:59:59.999Z`);
     whereClause.matchDate = {
       gte: startDate,
       lte: endDate,
     };
+  }
+
+  // Filtros por rango de fecha (para Anteriores / Hoy / Próximos)
+  if (dateFrom || dateTo) {
+    whereClause.matchDate = {};
+    if (dateFrom) whereClause.matchDate.gte = new Date(dateFrom);
+    if (dateTo) whereClause.matchDate.lte = new Date(dateTo);
   }
 
   return await db.match.findMany({
@@ -38,6 +47,7 @@ export async function getMatches(filters: MatchFilters) {
       groupName: true,
       homeScore: true,
       awayScore: true,
+      result: true,
       homeTeam: {
         select: {
           id: true,
