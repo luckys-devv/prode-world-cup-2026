@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,13 +23,11 @@ import { api } from '../../services/api';
 import { Group, Match, MatchStage, MatchStatus } from '@prode/shared';
 import { useTheme } from '../../hooks/use-theme';
 
-const STAGES = [
-  { key: MatchStage.GROUP_STAGE, label: 'Grupos' },
-  { key: MatchStage.LAST_32, label: '16avos' },
-  { key: MatchStage.LAST_16, label: 'Octavos' },
-  { key: MatchStage.QUARTER_FINALS, label: 'Cuartos' },
-  { key: MatchStage.SEMI_FINALS, label: 'Semis' },
-  { key: MatchStage.FINAL, label: 'Final' },
+type TimeTab = 'past' | 'today' | 'upcoming';
+const TIME_TABS: { key: TimeTab; label: string }[] = [
+  { key: 'past', label: 'Anteriores' },
+  { key: 'today', label: 'Hoy' },
+  { key: 'upcoming', label: 'Próximos' },
 ];
 
 interface LeaderboardEntry {
@@ -60,6 +58,8 @@ interface PredictionState {
     predictedHomeScore: string;
     predictedAwayScore: string;
     isSaved: boolean;
+    winnerPoints: number;
+    exactScorePoints: number;
   };
 }
 
@@ -76,26 +76,19 @@ export default function GroupDetailScreen() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
 
-  const [selectedStage, setSelectedStage] = useState<MatchStage>(MatchStage.GROUP_STAGE);
+  const [selectedTimeTab, setSelectedTimeTab] = useState<TimeTab>('today');
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<PredictionState>({});
   const [loadingPredictions, setLoadingPredictions] = useState(false);
 
-  // Auto-guardado en caliente
-  const [saveStates, setSaveStates] = useState<{ [matchId: number]: 'idle' | 'saving' | 'saved' | 'error' }>({});
-  const debounceTimers = useRef<{ [matchId: number]: any }>({});
+  // Modo edición: qué partido está siendo editado
+  const [editingMatchId, setEditingMatchId] = useState<number | null>(null);
+  const [savingPrediction, setSavingPrediction] = useState(false);
 
-  // Acceder a la preddicion mas cercana sin 
-  const predictionsRef = useRef(predictions);
-  useEffect(() => { predictionsRef.current = predictions; }, [predictions]);
-
-  // Caché de partidos por etapa para evitar re-fetches innecesarios
-  const matchesCache = useRef<{ [stage: string]: Match[] }>({});
-
-  //evitar re-fetch del campeón si ya fue cargado
+  // Evitar re-fetch del campeón si ya fue cargado
   const championDataLoaded = useRef(false);
 
-  //throttle del leaderboard (solo refrescar cada 30 segundos)
+  // Throttle del leaderboard (solo refrescar cada 30 segundos)
   const lastGroupFetchTime = useRef<number>(0);
   const REFRESH_INTERVAL = 30_000;
 
@@ -111,12 +104,18 @@ export default function GroupDetailScreen() {
   const [loadingMemberPreds, setLoadingMemberPreds] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
 
-  // Limpiamos los timers del debouncing al desmontar
-  useEffect(() => {
-    return () => {
-      Object.values(debounceTimers.current).forEach((timer) => clearTimeout(timer));
-    };
-  }, []);
+  const groupedByDate = useMemo(() => {
+    const groups: { [date: string]: Match[] } = {};
+    matches.forEach((match) => {
+      const dateKey = new Date(match.matchDate).toLocaleDateString('es-AR', {
+        day: 'numeric',
+        month: 'long',
+      });
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(match);
+    });
+    return Object.entries(groups);
+  }, [matches]);
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === 'web') {
@@ -149,57 +148,48 @@ export default function GroupDetailScreen() {
     try {
       setLoadingPredictions(true);
 
-      const cachedMatches = matchesCache.current[selectedStage];
-      let fetchedMatches: Match[];
+      // Calcular rango de fechas según la hora local del usuario
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-      if (cachedMatches) {
-        // Matches ya cacheados: solo pedimos las predicciones
-        fetchedMatches = cachedMatches;
-        const predsRes = await api.get(`/predictions/group/${id}`);
-        const fetchedPreds = predsRes.data.data as any[];
-
-        const initialPredsState: PredictionState = {};
-        fetchedMatches.forEach((match) => {
-          const matchingPred = fetchedPreds.find((p) => p.matchId === match.id);
-          initialPredsState[match.id] = {
-            prediction: matchingPred ? matchingPred.prediction : null,
-            predictedHomeScore: matchingPred && matchingPred.predictedHomeScore !== null ? String(matchingPred.predictedHomeScore) : '',
-            predictedAwayScore: matchingPred && matchingPred.predictedAwayScore !== null ? String(matchingPred.predictedAwayScore) : '',
-            isSaved: true,
-          };
-        });
-
-        setMatches(fetchedMatches);
-        setPredictions(initialPredsState);
+      let matchesUrl = '/matches?';
+      if (selectedTimeTab === 'past') {
+        matchesUrl += `dateTo=${todayStart.toISOString()}`;
+      } else if (selectedTimeTab === 'today') {
+        matchesUrl += `dateFrom=${todayStart.toISOString()}&dateTo=${todayEnd.toISOString()}`;
       } else {
-        // Primera vez en esta etapa: pedimos todo junto
-        const [matchesRes, predsRes] = await Promise.all([
-          api.get(`/matches?stage=${selectedStage}`),
-          api.get(`/predictions/group/${id}`),
-        ]);
-
-        fetchedMatches = matchesRes.data.data as Match[];
-        const fetchedPreds = predsRes.data.data as any[];
-
-        // Guardamos en caché para próximas visitas
-        matchesCache.current[selectedStage] = fetchedMatches;
-
-        const initialPredsState: PredictionState = {};
-        fetchedMatches.forEach((match) => {
-          const matchingPred = fetchedPreds.find((p) => p.matchId === match.id);
-          initialPredsState[match.id] = {
-            prediction: matchingPred ? matchingPred.prediction : null,
-            predictedHomeScore: matchingPred && matchingPred.predictedHomeScore !== null ? String(matchingPred.predictedHomeScore) : '',
-            predictedAwayScore: matchingPred && matchingPred.predictedAwayScore !== null ? String(matchingPred.predictedAwayScore) : '',
-            isSaved: true,
-          };
-        });
-
-        setMatches(fetchedMatches);
-        setPredictions(initialPredsState);
+        // upcoming: desde mañana en adelante
+        const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+        matchesUrl += `dateFrom=${tomorrowStart.toISOString()}`;
       }
+
+      const [matchesRes, predsRes] = await Promise.all([
+        api.get(matchesUrl),
+        api.get(`/predictions/group/${id}`),
+      ]);
+
+      const fetchedMatches = matchesRes.data.data as Match[];
+      const fetchedPreds = predsRes.data.data as any[];
+
+      const initialPredsState: PredictionState = {};
+      fetchedMatches.forEach((match) => {
+        const matchingPred = fetchedPreds.find((p) => p.matchId === match.id);
+        initialPredsState[match.id] = {
+          prediction: matchingPred ? matchingPred.prediction : null,
+          predictedHomeScore: matchingPred && matchingPred.predictedHomeScore !== null ? String(matchingPred.predictedHomeScore) : '',
+          predictedAwayScore: matchingPred && matchingPred.predictedAwayScore !== null ? String(matchingPred.predictedAwayScore) : '',
+          isSaved: true,
+          // Puntos obtenidos en este partido
+          winnerPoints: matchingPred?.winnerPoints ?? 0,
+          exactScorePoints: matchingPred?.exactScorePoints ?? 0,
+        };
+      });
+
+      setMatches(fetchedMatches);
+      setPredictions(initialPredsState);
     } catch (error) {
-      console.error('Error al cargar fixture y predicciones:', error);
+      console.error('Error al cargar partidos y predicciones:', error);
     } finally {
       setLoadingPredictions(false);
     }
@@ -253,13 +243,12 @@ export default function GroupDetailScreen() {
     useCallback(() => {
       if (activeTab === 'predictions') {
         fetchPredictionsData();
-        // Solo cargamos el campeón una vez por sesión en este grupo
         if (!championDataLoaded.current) {
           fetchChampionData();
           championDataLoaded.current = true;
         }
       }
-    }, [activeTab, selectedStage, id])
+    }, [activeTab, selectedTimeTab, id])
   );
 
   const handleSendInvite = async () => {
@@ -321,93 +310,52 @@ export default function GroupDetailScreen() {
     return 'DRAW';
   };
 
-  const updateLocalScore = useCallback((matchId: number, field: 'predictedHomeScore' | 'predictedAwayScore', value: string) => {
-    // Sanitizar entrada: permitir solo números enteros
+  const updateLocalScore = (matchId: number, field: 'predictedHomeScore' | 'predictedAwayScore', value: string) => {
     const cleanValue = value.replace(/[^0-9]/g, '');
-
-    // 1. Actualizar el estado local inmediatamente de forma pura
     setPredictions((prev) => {
       const current = prev[matchId] || {
         prediction: null,
         predictedHomeScore: '',
         predictedAwayScore: '',
-        isSaved: true,
+        isSaved: false,
+        winnerPoints: 0,
+        exactScorePoints: 0,
       };
-
-      const updated = {
-        ...current,
-        [field]: cleanValue,
-      };
-
-      const deduced = getDeducedWinner(updated.predictedHomeScore, updated.predictedAwayScore);
-      updated.prediction = deduced;
+      const updated = { ...current, [field]: cleanValue };
+      updated.prediction = getDeducedWinner(updated.predictedHomeScore, updated.predictedAwayScore);
       updated.isSaved = false;
-
-      return {
-        ...prev,
-        [matchId]: updated,
-      };
+      return { ...prev, [matchId]: updated };
     });
+  };
 
-    // 2. Lógica de auto-guardado con debouncing (800ms) — usa predictionsRef para no depender del estado
-    const current = predictionsRef.current[matchId] || {
-      prediction: null,
-      predictedHomeScore: '',
-      predictedAwayScore: '',
-      isSaved: true,
-    };
-
-    const updated = {
-      ...current,
-      [field]: cleanValue,
-    };
-
-    const deduced = getDeducedWinner(updated.predictedHomeScore, updated.predictedAwayScore);
-
-    if (updated.predictedHomeScore.trim() !== '' && updated.predictedAwayScore.trim() !== '') {
-      if (debounceTimers.current[matchId]) {
-        clearTimeout(debounceTimers.current[matchId]);
-      }
-
-      setSaveStates((prevStates) => ({ ...prevStates, [matchId]: 'saving' }));
-
-      debounceTimers.current[matchId] = setTimeout(async () => {
-        try {
-          await api.post('/predictions', {
-            matchId,
-            groupId: Number(id),
-            prediction: deduced,
-            predictedHomeScore: parseInt(updated.predictedHomeScore, 10),
-            predictedAwayScore: parseInt(updated.predictedAwayScore, 10),
-          });
-
-          // Marcar como guardado si el valor no volvió a cambiar en el intermedio
-          setPredictions((prevPreds) => {
-            const pred = prevPreds[matchId];
-            if (!pred) return prevPreds;
-            if (
-              pred.predictedHomeScore === updated.predictedHomeScore &&
-              pred.predictedAwayScore === updated.predictedAwayScore
-            ) {
-              return {
-                ...prevPreds,
-                [matchId]: {
-                  ...pred,
-                  isSaved: true,
-                },
-              };
-            }
-            return prevPreds;
-          });
-
-          setSaveStates((prevStates) => ({ ...prevStates, [matchId]: 'saved' }));
-        } catch (error) {
-          console.error('Error al auto-guardar la predicción:', error);
-          setSaveStates((prevStates) => ({ ...prevStates, [matchId]: 'error' }));
-        }
-      }, 800);
+  const handleSavePrediction = async (matchId: number) => {
+    const pred = predictions[matchId];
+    if (!pred || pred.predictedHomeScore.trim() === '' || pred.predictedAwayScore.trim() === '') {
+      showAlert('Error', 'Completá ambos marcadores antes de confirmar.');
+      return;
     }
-  }, [id]); // Solo depende de id — predictions se lee via predictionsRef
+    try {
+      setSavingPrediction(true);
+      await api.post('/predictions', {
+        matchId,
+        groupId: Number(id),
+        prediction: pred.prediction,
+        predictedHomeScore: parseInt(pred.predictedHomeScore, 10),
+        predictedAwayScore: parseInt(pred.predictedAwayScore, 10),
+      });
+      setPredictions((prev) => ({
+        ...prev,
+        [matchId]: { ...prev[matchId], isSaved: true },
+      }));
+      setEditingMatchId(null);
+      showAlert('¡Guardado!', 'Tu pronóstico fue registrado con éxito.');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Error al guardar el pronóstico.';
+      showAlert('Error', errorMsg);
+    } finally {
+      setSavingPrediction(false);
+    }
+  };
 
   const handleSaveChampion = async (teamId: number) => {
     if (!teamId) return;
@@ -494,7 +442,7 @@ export default function GroupDetailScreen() {
             onPress={() => setActiveTab('predictions')}
           >
             <ThemedText type="smallBold" themeColor={activeTab === 'predictions' ? 'text' : 'textSecondary'}>
-              Pronósticos
+              Partidos
             </ThemedText>
           </TouchableOpacity>
           <TouchableOpacity
@@ -637,16 +585,16 @@ export default function GroupDetailScreen() {
 
             <View style={[styles.stagesSelector, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stagesScroll}>
-                {STAGES.map((stage) => {
-                  const isActive = selectedStage === stage.key;
+                {TIME_TABS.map((tab) => {
+                  const isActive = selectedTimeTab === tab.key;
                   return (
                     <TouchableOpacity
-                      key={stage.key}
+                      key={tab.key}
                       style={[styles.stageTabButton, isActive && { backgroundColor: colors.accentPrimary }]}
-                      onPress={() => setSelectedStage(stage.key)}
+                      onPress={() => setSelectedTimeTab(tab.key)}
                     >
                       <ThemedText type="smallBold" style={[styles.stageTabText, isActive && styles.stageTabTextActive]}>
-                        {stage.label}
+                        {tab.label}
                       </ThemedText>
                     </TouchableOpacity>
                   );
@@ -659,139 +607,210 @@ export default function GroupDetailScreen() {
             ) : matches.length === 0 ? (
               <ThemedView type="backgroundElement" style={[styles.emptyCard, { borderColor: colors.border }]}>
                 <ThemedText themeColor="textSecondary" style={styles.centerText}>
-                  No hay partidos programados para esta fase.
+                  No hay partidos programados en esta sección.
                 </ThemedText>
               </ThemedView>
             ) : (
-              <FlatList
-                data={matches}
-                keyExtractor={(match) => String(match.id)}
-                scrollEnabled={false}
-                initialNumToRender={6}
-                maxToRenderPerBatch={6}
-                windowSize={3}
-                renderItem={({ item: match }) => {
-                  const localPred = predictions[match.id] || {
-                    prediction: null,
-                    predictedHomeScore: '',
-                    predictedAwayScore: '',
-                    isSaved: true,
-                  };
-                  const isMatchClosed = new Date() >= new Date(match.matchDate);
+              <View style={{ gap: Spacing.four }}>
+                {groupedByDate.map(([dateStr, dateMatches]) => (
+                  <View key={dateStr} style={styles.dateGroupContainer}>
+                    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.dateHeader}>
+                      {dateStr}
+                    </ThemedText>
+                    
+                    <View style={{ gap: Spacing.three, marginTop: Spacing.two }}>
+                      {dateMatches.map((match) => {
+                        const localPred = predictions[match.id] || {
+                          prediction: null,
+                          predictedHomeScore: '',
+                          predictedAwayScore: '',
+                          isSaved: true,
+                          winnerPoints: 0,
+                          exactScorePoints: 0,
+                        };
+                        const isMatchClosed = new Date() >= new Date(match.matchDate);
+                        const isEditing = editingMatchId === match.id;
+                        const hasPrediction = localPred.predictedHomeScore !== '' && localPred.predictedAwayScore !== '';
 
-                  return (
-                    <ThemedView key={match.id} type="backgroundElement" style={[styles.matchCard, { borderColor: colors.border }]}>
-                      <View style={[styles.matchCardHeader, { borderColor: colors.border }]}>
-                        <ThemedText type="code" themeColor="accentSecondary">
-                          {new Date(match.matchDate).toLocaleDateString('es-AR', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
+                        // Determinar el badge de estado / hora
+                        let statusText = '';
+                        let isLive = match.status === 'IN_PLAY';
+                        let isFinished = match.status === 'FINISHED';
+
+                        if (isFinished) {
+                          statusText = 'Finalizado';
+                        } else if (isLive) {
+                          statusText = '• En vivo';
+                        } else {
+                          statusText = new Date(match.matchDate).toLocaleTimeString('es-AR', {
                             hour: '2-digit',
                             minute: '2-digit',
-                          })} hs
-                        </ThemedText>
+                          }) + ' hs';
+                        }
 
-                        {isMatchClosed ? (
-                          <View style={styles.closedBadge}>
-                            <ThemedText type="code" style={styles.closedBadgeText}>🔒 Cerrado</ThemedText>
-                          </View>
-                        ) : saveStates[match.id] === 'saving' ? (
-                          <View style={[styles.openBadge, { backgroundColor: 'rgba(217, 119, 6, 0.1)' }]}>
-                            <ThemedText type="code" style={{ color: colors.accentGold, fontSize: 10, fontWeight: 'bold' }}>⏳ Guardando...</ThemedText>
-                          </View>
-                        ) : saveStates[match.id] === 'saved' ? (
-                          <View style={[styles.openBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                            <ThemedText type="code" style={{ color: colors.success, fontSize: 10, fontWeight: 'bold' }}>✓ Guardado</ThemedText>
-                          </View>
-                        ) : saveStates[match.id] === 'error' ? (
-                          <View style={[styles.closedBadge, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                            <ThemedText type="code" style={{ color: colors.error, fontSize: 10, fontWeight: 'bold' }}>⚠️ Error</ThemedText>
-                          </View>
-                        ) : (
-                          <View style={styles.openBadge}>
-                            <ThemedText type="code" style={styles.openBadgeText}>🟢 Abierto</ThemedText>
-                          </View>
-                        )}
-                      </View>
+                        // Calcular puntos obtenidos
+                        const pointsObtained = localPred.winnerPoints + localPred.exactScorePoints;
 
-                      <View style={styles.matchCardBody}>
-                        {/* Equipo Local */}
-                        <View style={styles.teamInfo}>
-                          {match.homeTeam.crestUrl ? (
-                            <Image source={{ uri: match.homeTeam.crestUrl }} style={styles.flag} />
-                          ) : (
-                            <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
-                          )}
-                          <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
-                            {match.homeTeam.shortName}
-                          </ThemedText>
-                        </View>
+                        return (
+                          <ThemedView key={match.id} type="backgroundElement" style={[styles.matchCard, { borderColor: colors.border }]}>
+                            {/* Header del Partido */}
+                            <View style={styles.matchCardHeader}>
+                              <ThemedText type="smallBold" themeColor="textSecondary">
+                                {match.groupName || match.stage}
+                              </ThemedText>
+                              <View style={[
+                                styles.statusBadge,
+                                isFinished && styles.statusFinished,
+                                isLive && styles.statusLive
+                              ]}>
+                                <ThemedText type="code" style={[
+                                  styles.statusBadgeText,
+                                  isFinished && styles.statusFinishedText,
+                                  isLive && styles.statusLiveText
+                                ]}>
+                                  {statusText}
+                                </ThemedText>
+                              </View>
+                            </View>
 
-                        {/* Inputs de Goles */}
-                        <View style={styles.exactScoreInputs}>
-                          <TextInput
-                            style={[styles.scoreInput, {
-                              backgroundColor: colors.backgroundSelected,
-                              borderColor: colors.border,
-                              color: colors.text
-                            }, isMatchClosed && styles.inputDisabled]}
-                            keyboardType="number-pad"
-                            maxLength={2}
-                            value={localPred.predictedHomeScore}
-                            onChangeText={(val) => updateLocalScore(match.id, 'predictedHomeScore', val)}
-                            editable={!isMatchClosed}
-                            placeholder="0"
-                            placeholderTextColor={colors.textSecondary}
-                          />
-                          <ThemedText type="smallBold" themeColor="textSecondary">-</ThemedText>
-                          <TextInput
-                            style={[styles.scoreInput, {
-                              backgroundColor: colors.backgroundSelected,
-                              borderColor: colors.border,
-                              color: colors.text
-                            }, isMatchClosed && styles.inputDisabled]}
-                            keyboardType="number-pad"
-                            maxLength={2}
-                            value={localPred.predictedAwayScore}
-                            onChangeText={(val) => updateLocalScore(match.id, 'predictedAwayScore', val)}
-                            editable={!isMatchClosed}
-                            placeholder="0"
-                            placeholderTextColor={colors.textSecondary}
-                          />
-                        </View>
+                            {/* Cuerpo del Partido (Banderas, Nombres y Goles) */}
+                            <View style={styles.matchCardBody}>
+                              {/* Local */}
+                              <View style={styles.teamInfo}>
+                                {match.homeTeam.crestUrl ? (
+                                  <Image source={{ uri: match.homeTeam.crestUrl }} style={styles.flag} />
+                                ) : (
+                                  <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
+                                )}
+                                <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
+                                  {match.homeTeam.name}
+                                </ThemedText>
+                              </View>
 
-                        {/* Equipo Visitante */}
-                        <View style={styles.teamInfo}>
-                          {match.awayTeam.crestUrl ? (
-                            <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flag} />
-                          ) : (
-                            <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
-                          )}
-                          <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
-                            {match.awayTeam.shortName}
-                          </ThemedText>
-                        </View>
-                      </View>
+                              {/* Marcadores / VS */}
+                              {isEditing ? (
+                                <View style={styles.exactScoreInputs}>
+                                  <TextInput
+                                    style={[styles.scoreInput, {
+                                      backgroundColor: colors.backgroundSelected,
+                                      borderColor: colors.border,
+                                      color: colors.text
+                                    }]}
+                                    keyboardType="number-pad"
+                                    maxLength={2}
+                                    value={localPred.predictedHomeScore}
+                                    onChangeText={(val) => updateLocalScore(match.id, 'predictedHomeScore', val)}
+                                    placeholder="0"
+                                    placeholderTextColor={colors.textSecondary}
+                                  />
+                                  <ThemedText type="smallBold" themeColor="textSecondary">-</ThemedText>
+                                  <TextInput
+                                    style={[styles.scoreInput, {
+                                      backgroundColor: colors.backgroundSelected,
+                                      borderColor: colors.border,
+                                      color: colors.text
+                                    }]}
+                                    keyboardType="number-pad"
+                                    maxLength={2}
+                                    value={localPred.predictedAwayScore}
+                                    onChangeText={(val) => updateLocalScore(match.id, 'predictedAwayScore', val)}
+                                    placeholder="0"
+                                    placeholderTextColor={colors.textSecondary}
+                                  />
+                                </View>
+                              ) : (
+                                <View style={styles.scoreDisplayContainer}>
+                                  {isFinished || isLive ? (
+                                    <View style={styles.officialScoreRow}>
+                                      <ThemedText style={styles.officialScoreText}>
+                                        {match.homeScore}
+                                      </ThemedText>
+                                      <ThemedText type="small" themeColor="textSecondary" style={{ marginHorizontal: Spacing.two }}>
+                                        vs
+                                      </ThemedText>
+                                      <ThemedText style={styles.officialScoreText}>
+                                        {match.awayScore}
+                                      </ThemedText>
+                                    </View>
+                                  ) : (
+                                    <ThemedText type="smallBold" themeColor="textSecondary">
+                                      vs
+                                    </ThemedText>
+                                  )}
+                                </View>
+                              )}
 
-                      {/* Indicador de Ganador — solo si hay predicción cargada */}
-                      {localPred.prediction && (
-                        <View style={styles.selectorRow}>
-                          <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'HOME_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
-                            <ThemedText type="smallBold" themeColor={localPred.prediction === 'HOME_TEAM' ? 'text' : 'textSecondary'}>Gana Local</ThemedText>
-                          </View>
-                          <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'DRAW' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
-                            <ThemedText type="smallBold" themeColor={localPred.prediction === 'DRAW' ? 'text' : 'textSecondary'}>Empate</ThemedText>
-                          </View>
-                          <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'AWAY_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
-                            <ThemedText type="smallBold" themeColor={localPred.prediction === 'AWAY_TEAM' ? 'text' : 'textSecondary'}>Gana Visita</ThemedText>
-                          </View>
-                        </View>
-                      )}
-                    </ThemedView>
-                  );
-                }}
-              />
+                              {/* Visitante */}
+                              <View style={styles.teamInfo}>
+                                {match.awayTeam.crestUrl ? (
+                                  <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flag} />
+                                ) : (
+                                  <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
+                                )}
+                                <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
+                                  {match.awayTeam.name}
+                                </ThemedText>
+                              </View>
+                            </View>
+
+                            {/* Sección Inferior de Predicción / Botones */}
+                            {isEditing ? (
+                              <TouchableOpacity
+                                style={[styles.confirmBtn, { backgroundColor: colors.accentPrimary }, savingPrediction && styles.buttonDisabled]}
+                                onPress={() => handleSavePrediction(match.id)}
+                                disabled={savingPrediction}
+                              >
+                                {savingPrediction ? (
+                                  <ActivityIndicator size="small" color={colors.background} />
+                                ) : (
+                                  <ThemedText type="smallBold" style={[styles.confirmBtnText, { color: colors.background }]}>
+                                    Confirmar Pronóstico
+                                  </ThemedText>
+                                )}
+                              </TouchableOpacity>
+                            ) : (
+                              <View style={[styles.predictionRow, { borderTopWidth: 1, borderColor: colors.border, paddingTop: Spacing.two }]}>
+                                {hasPrediction ? (
+                                  <View style={styles.predictionStatusContainer}>
+                                    <ThemedText type="small" themeColor="textSecondary">
+                                      Tu resultado: <ThemedText type="smallBold" style={{ color: colors.text }}>{localPred.predictedHomeScore} - {localPred.predictedAwayScore}</ThemedText>
+                                    </ThemedText>
+                                    {(isFinished || isLive) && (
+                                      <View style={[
+                                        styles.pointsBadge,
+                                        pointsObtained > 0 ? styles.pointsPositive : styles.pointsZero
+                                      ]}>
+                                        <ThemedText type="code" style={[styles.pointsBadgeText, pointsObtained > 0 && { color: colors.success }]}>
+                                          +{pointsObtained} pts
+                                        </ThemedText>
+                                      </View>
+                                    )}
+                                  </View>
+                                ) : (
+                                  <ThemedText type="small" themeColor="textSecondary" style={{ fontStyle: 'italic' }}>
+                                    Sin pronóstico
+                                  </ThemedText>
+                                )}
+
+                                {!isMatchClosed && (
+                                  <TouchableOpacity
+                                    style={styles.actionBtn}
+                                    onPress={() => setEditingMatchId(match.id)}
+                                  >
+                                    <ThemedText type="smallBold" themeColor="accentSecondary">
+                                      {hasPrediction ? 'Editar' : 'Nuevo'}
+                                    </ThemedText>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            )}
+                          </ThemedView>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </View>
             )}
           </View>
         )}
@@ -1237,28 +1256,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(42, 49, 84, 0.4)',
     paddingBottom: Spacing.two,
   },
-  closedBadge: {
-    backgroundColor: 'rgba(255, 82, 82, 0.1)',
-    borderRadius: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
-  },
-  closedBadgeText: {
-    color: Colors.light.error,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  openBadge: {
-    backgroundColor: 'rgba(0, 230, 118, 0.1)',
-    borderRadius: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
-  },
-  openBadgeText: {
-    color: Colors.light.success,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
   matchCardBody: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1298,26 +1295,103 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  inputDisabled: {
-    backgroundColor: 'rgba(42, 49, 84, 0.1)',
+  dateGroupContainer: {
+    marginTop: Spacing.two,
+  },
+  dateHeader: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textTransform: 'capitalize',
+    marginBottom: Spacing.one,
+  },
+  statusBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+  },
+  statusBadgeText: {
     color: Colors.light.textSecondary,
-    borderColor: 'transparent',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
-  selectorRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-    marginTop: Spacing.one,
+  statusFinished: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  selectorBtn: {
+  statusFinishedText: {
+    color: '#9CA3AF',
+  },
+  statusLive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  statusLiveText: {
+    color: '#EF4444',
+  },
+  scoreDisplayContainer: {
     flex: 1,
-    height: 38,
-    borderRadius: Spacing.two,
-    borderWidth: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  officialScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  officialScoreText: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  confirmBtn: {
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.two,
+  },
+  confirmBtnText: {
+    fontSize: 13,
+  },
+  predictionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  readOnlyBtn: {
-    opacity: 0.85,
+  predictionStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  pointsBadge: {
+    borderRadius: Spacing.one,
+    paddingHorizontal: Spacing.one + Spacing.half,
+    paddingVertical: Spacing.half,
+  },
+  closedBadge: {
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    borderRadius: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+  },
+  closedBadgeText: {
+    color: Colors.light.error,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  pointsPositive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  pointsZero: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  pointsBadgeText: {
+    color: '#10B981',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  actionBtn: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   deleteGroupButton: {
     backgroundColor: 'rgba(255, 82, 82, 0.1)',
