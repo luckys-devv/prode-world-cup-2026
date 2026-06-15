@@ -770,18 +770,20 @@ export default function GroupDetailScreen() {
                         </View>
                       </View>
 
-                      {/* Indicador de Ganador */}
-                      <View style={styles.selectorRow}>
-                        <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'HOME_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
-                          <ThemedText type="smallBold" themeColor={localPred.prediction === 'HOME_TEAM' ? 'text' : 'textSecondary'}>Gana Local</ThemedText>
+                      {/* Indicador de Ganador — solo si hay predicción cargada */}
+                      {localPred.prediction && (
+                        <View style={styles.selectorRow}>
+                          <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'HOME_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
+                            <ThemedText type="smallBold" themeColor={localPred.prediction === 'HOME_TEAM' ? 'text' : 'textSecondary'}>Gana Local</ThemedText>
+                          </View>
+                          <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'DRAW' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
+                            <ThemedText type="smallBold" themeColor={localPred.prediction === 'DRAW' ? 'text' : 'textSecondary'}>Empate</ThemedText>
+                          </View>
+                          <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'AWAY_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
+                            <ThemedText type="smallBold" themeColor={localPred.prediction === 'AWAY_TEAM' ? 'text' : 'textSecondary'}>Gana Visita</ThemedText>
+                          </View>
                         </View>
-                        <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'DRAW' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
-                          <ThemedText type="smallBold" themeColor={localPred.prediction === 'DRAW' ? 'text' : 'textSecondary'}>Empate</ThemedText>
-                        </View>
-                        <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'AWAY_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
-                          <ThemedText type="smallBold" themeColor={localPred.prediction === 'AWAY_TEAM' ? 'text' : 'textSecondary'}>Gana Visita</ThemedText>
-                        </View>
-                      </View>
+                      )}
                     </ThemedView>
                   );
                 }}
