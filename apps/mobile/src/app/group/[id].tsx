@@ -659,164 +659,133 @@ export default function GroupDetailScreen() {
                 </ThemedText>
               </ThemedView>
             ) : (
-              matches.map((match) => {
-                const localPred = predictions[match.id] || {
-                  prediction: null,
-                  predictedHomeScore: '',
-                  predictedAwayScore: '',
-                  isSaved: true,
-                };
+              <FlatList
+                data={matches}
+                keyExtractor={(match) => String(match.id)}
+                scrollEnabled={false}
+                initialNumToRender={6}
+                maxToRenderPerBatch={6}
+                windowSize={3}
+                renderItem={({ item: match }) => {
+                  const localPred = predictions[match.id] || {
+                    prediction: null,
+                    predictedHomeScore: '',
+                    predictedAwayScore: '',
+                    isSaved: true,
+                  };
+                  const isMatchClosed = new Date() >= new Date(match.matchDate);
 
-                const isMatchClosed = new Date() >= new Date(match.matchDate);
+                  return (
+                    <ThemedView key={match.id} type="backgroundElement" style={[styles.matchCard, { borderColor: colors.border }]}>
+                      <View style={[styles.matchCardHeader, { borderColor: colors.border }]}>
+                        <ThemedText type="code" themeColor="accentSecondary">
+                          {new Date(match.matchDate).toLocaleDateString('es-AR', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })} hs
+                        </ThemedText>
 
-                return (
-                  <ThemedView key={match.id} type="backgroundElement" style={[styles.matchCard, { borderColor: colors.border }]}>
-                    <View style={[styles.matchCardHeader, { borderColor: colors.border }]}>
-                      <ThemedText type="code" themeColor="accentSecondary">
-                        {new Date(match.matchDate).toLocaleDateString('es-AR', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })} hs
-                      </ThemedText>
-
-                      {isMatchClosed ? (
-                        <View style={styles.closedBadge}>
-                          <ThemedText type="code" style={styles.closedBadgeText}>🔒 Cerrado</ThemedText>
-                        </View>
-                      ) : saveStates[match.id] === 'saving' ? (
-                        <View style={[styles.openBadge, { backgroundColor: 'rgba(217, 119, 6, 0.1)' }]}>
-                          <ThemedText type="code" style={{ color: colors.accentGold, fontSize: 10, fontWeight: 'bold' }}>⏳ Guardando...</ThemedText>
-                        </View>
-                      ) : saveStates[match.id] === 'saved' ? (
-                        <View style={[styles.openBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                          <ThemedText type="code" style={{ color: colors.success, fontSize: 10, fontWeight: 'bold' }}>✓ Guardado</ThemedText>
-                        </View>
-                      ) : saveStates[match.id] === 'error' ? (
-                        <View style={[styles.closedBadge, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                          <ThemedText type="code" style={{ color: colors.error, fontSize: 10, fontWeight: 'bold' }}>⚠️ Error</ThemedText>
-                        </View>
-                      ) : (
-                        <View style={styles.openBadge}>
-                          <ThemedText type="code" style={styles.openBadgeText}>🟢 Abierto</ThemedText>
-                        </View>
-                      )}
-                    </View>
-
-                    <View style={styles.matchCardBody}>
-                      {/* Equipo Local */}
-                      <View style={styles.teamInfo}>
-                        {match.homeTeam.crestUrl ? (
-                          <Image source={{ uri: match.homeTeam.crestUrl }} style={styles.flag} />
+                        {isMatchClosed ? (
+                          <View style={styles.closedBadge}>
+                            <ThemedText type="code" style={styles.closedBadgeText}>🔒 Cerrado</ThemedText>
+                          </View>
+                        ) : saveStates[match.id] === 'saving' ? (
+                          <View style={[styles.openBadge, { backgroundColor: 'rgba(217, 119, 6, 0.1)' }]}>
+                            <ThemedText type="code" style={{ color: colors.accentGold, fontSize: 10, fontWeight: 'bold' }}>⏳ Guardando...</ThemedText>
+                          </View>
+                        ) : saveStates[match.id] === 'saved' ? (
+                          <View style={[styles.openBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                            <ThemedText type="code" style={{ color: colors.success, fontSize: 10, fontWeight: 'bold' }}>✓ Guardado</ThemedText>
+                          </View>
+                        ) : saveStates[match.id] === 'error' ? (
+                          <View style={[styles.closedBadge, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                            <ThemedText type="code" style={{ color: colors.error, fontSize: 10, fontWeight: 'bold' }}>⚠️ Error</ThemedText>
+                          </View>
                         ) : (
-                          <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
+                          <View style={styles.openBadge}>
+                            <ThemedText type="code" style={styles.openBadgeText}>🟢 Abierto</ThemedText>
+                          </View>
                         )}
-                        <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
-                          {match.homeTeam.shortName}
-                        </ThemedText>
                       </View>
 
-                      {/* Inputs de Goles */}
-                      <View style={styles.exactScoreInputs}>
-                        <TextInput
-                          style={[styles.scoreInput, {
-                            backgroundColor: colors.backgroundSelected,
-                            borderColor: colors.border,
-                            color: colors.text
-                          }, isMatchClosed && styles.inputDisabled]}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          value={localPred.predictedHomeScore}
-                          onChangeText={(val) => updateLocalScore(match.id, 'predictedHomeScore', val)}
-                          editable={!isMatchClosed}
-                          placeholder="0"
-                          placeholderTextColor={colors.textSecondary}
-                        />
-                        <ThemedText type="smallBold" themeColor="textSecondary">-</ThemedText>
-                        <TextInput
-                          style={[styles.scoreInput, {
-                            backgroundColor: colors.backgroundSelected,
-                            borderColor: colors.border,
-                            color: colors.text
-                          }, isMatchClosed && styles.inputDisabled]}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          value={localPred.predictedAwayScore}
-                          onChangeText={(val) => updateLocalScore(match.id, 'predictedAwayScore', val)}
-                          editable={!isMatchClosed}
-                          placeholder="0"
-                          placeholderTextColor={colors.textSecondary}
-                        />
+                      <View style={styles.matchCardBody}>
+                        {/* Equipo Local */}
+                        <View style={styles.teamInfo}>
+                          {match.homeTeam.crestUrl ? (
+                            <Image source={{ uri: match.homeTeam.crestUrl }} style={styles.flag} />
+                          ) : (
+                            <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
+                          )}
+                          <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
+                            {match.homeTeam.shortName}
+                          </ThemedText>
+                        </View>
+
+                        {/* Inputs de Goles */}
+                        <View style={styles.exactScoreInputs}>
+                          <TextInput
+                            style={[styles.scoreInput, {
+                              backgroundColor: colors.backgroundSelected,
+                              borderColor: colors.border,
+                              color: colors.text
+                            }, isMatchClosed && styles.inputDisabled]}
+                            keyboardType="number-pad"
+                            maxLength={2}
+                            value={localPred.predictedHomeScore}
+                            onChangeText={(val) => updateLocalScore(match.id, 'predictedHomeScore', val)}
+                            editable={!isMatchClosed}
+                            placeholder="0"
+                            placeholderTextColor={colors.textSecondary}
+                          />
+                          <ThemedText type="smallBold" themeColor="textSecondary">-</ThemedText>
+                          <TextInput
+                            style={[styles.scoreInput, {
+                              backgroundColor: colors.backgroundSelected,
+                              borderColor: colors.border,
+                              color: colors.text
+                            }, isMatchClosed && styles.inputDisabled]}
+                            keyboardType="number-pad"
+                            maxLength={2}
+                            value={localPred.predictedAwayScore}
+                            onChangeText={(val) => updateLocalScore(match.id, 'predictedAwayScore', val)}
+                            editable={!isMatchClosed}
+                            placeholder="0"
+                            placeholderTextColor={colors.textSecondary}
+                          />
+                        </View>
+
+                        {/* Equipo Visitante */}
+                        <View style={styles.teamInfo}>
+                          {match.awayTeam.crestUrl ? (
+                            <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flag} />
+                          ) : (
+                            <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
+                          )}
+                          <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
+                            {match.awayTeam.shortName}
+                          </ThemedText>
+                        </View>
                       </View>
 
-                      {/* Equipo Visitante */}
-                      <View style={styles.teamInfo}>
-                        {match.awayTeam.crestUrl ? (
-                          <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flag} />
-                        ) : (
-                          <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
-                        )}
-                        <ThemedText type="smallBold" numberOfLines={1} style={[styles.teamName, { color: colors.text }]}>
-                          {match.awayTeam.shortName}
-                        </ThemedText>
+                      {/* Indicador de Ganador */}
+                      <View style={styles.selectorRow}>
+                        <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'HOME_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
+                          <ThemedText type="smallBold" themeColor={localPred.prediction === 'HOME_TEAM' ? 'text' : 'textSecondary'}>Gana Local</ThemedText>
+                        </View>
+                        <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'DRAW' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
+                          <ThemedText type="smallBold" themeColor={localPred.prediction === 'DRAW' ? 'text' : 'textSecondary'}>Empate</ThemedText>
+                        </View>
+                        <View style={[styles.selectorBtn, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }, localPred.prediction === 'AWAY_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary }, styles.readOnlyBtn]}>
+                          <ThemedText type="smallBold" themeColor={localPred.prediction === 'AWAY_TEAM' ? 'text' : 'textSecondary'}>Gana Visita</ThemedText>
+                        </View>
                       </View>
-                    </View>
-
-                    {/* Indicador de Ganador Deducido en tiempo real */}
-                    <View style={styles.selectorRow}>
-                      <View
-                        style={[
-                          styles.selectorBtn,
-                          { backgroundColor: colors.backgroundSelected, borderColor: colors.border },
-                          localPred.prediction === 'HOME_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
-                          styles.readOnlyBtn,
-                        ]}
-                      >
-                        <ThemedText
-                          type="smallBold"
-                          themeColor={localPred.prediction === 'HOME_TEAM' ? 'text' : 'textSecondary'}
-                        >
-                          Gana Local
-                        </ThemedText>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.selectorBtn,
-                          { backgroundColor: colors.backgroundSelected, borderColor: colors.border },
-                          localPred.prediction === 'DRAW' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
-                          styles.readOnlyBtn,
-                        ]}
-                      >
-                        <ThemedText
-                          type="smallBold"
-                          themeColor={localPred.prediction === 'DRAW' ? 'text' : 'textSecondary'}
-                        >
-                          Empate
-                        </ThemedText>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.selectorBtn,
-                          { backgroundColor: colors.backgroundSelected, borderColor: colors.border },
-                          localPred.prediction === 'AWAY_TEAM' && { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
-                          styles.readOnlyBtn,
-                        ]}
-                      >
-                        <ThemedText
-                          type="smallBold"
-                          themeColor={localPred.prediction === 'AWAY_TEAM' ? 'text' : 'textSecondary'}
-                        >
-                          Gana Visita
-                        </ThemedText>
-                      </View>
-                    </View>
-                  </ThemedView>
-                );
-              })
+                    </ThemedView>
+                  );
+                }}
+              />
             )}
           </View>
         )}
