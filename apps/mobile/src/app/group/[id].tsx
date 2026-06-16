@@ -348,8 +348,16 @@ export default function GroupDetailScreen() {
         [matchId]: { ...prev[matchId], isSaved: true },
       }));
       setEditingMatchId(null);
-      showAlert('¡Guardado!', 'Tu pronóstico fue registrado con éxito.');
     } catch (error: any) {
+      const status = error.status || error.response?.status || error.request?.status;
+      if (status === 200 || status === 201) {
+        setPredictions((prev) => ({
+          ...prev,
+          [matchId]: { ...prev[matchId], isSaved: true },
+        }));
+        setEditingMatchId(null);
+        return;
+      }
       const errorMsg = error.response?.data?.message || 'Error al guardar el pronóstico.';
       showAlert('Error', errorMsg);
     } finally {
@@ -368,6 +376,12 @@ export default function GroupDetailScreen() {
       setChampionId(teamId);
       showAlert('¡Pronóstico Guardado!', 'Elegiste a tu equipo campeón con éxito.');
     } catch (error: any) {
+      const status = error.status || error.response?.status || error.request?.status;
+      if (status === 200 || status === 201) {
+        setChampionId(teamId);
+        showAlert('¡Pronóstico Guardado!', 'Elegiste a tu equipo campeón con éxito.');
+        return;
+      }
       const errorMsg = error.response?.data?.message || 'Error al guardar el campeón.';
       showAlert('Error', errorMsg);
     } finally {
@@ -617,7 +631,7 @@ export default function GroupDetailScreen() {
                     <ThemedText type="smallBold" themeColor="textSecondary" style={styles.dateHeader}>
                       {dateStr}
                     </ThemedText>
-                    
+
                     <View style={{ gap: Spacing.three, marginTop: Spacing.two }}>
                       {dateMatches.map((match) => {
                         const localPred = predictions[match.id] || {
