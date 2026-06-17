@@ -60,10 +60,6 @@ export default function FixtureScreen() {
       item.status === MatchStatus.PAUSED ||
       item.status === MatchStatus.FINISHED;
 
-    const canPredict =
-      item.status === MatchStatus.SCHEDULED ||
-      item.status === MatchStatus.TIMED;
-
     return (
       <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <View style={[styles.cardHeader, { borderColor: colors.border }]}>
@@ -124,12 +120,6 @@ export default function FixtureScreen() {
             </Text>
           </View>
         </View>
-
-        {canPredict && (
-          <TouchableOpacity style={[styles.actionButton, { borderColor: colors.accentPrimary }]}>
-            <Text style={[styles.actionButtonText, { color: colors.accentPrimary }]}>Pronosticar</Text>
-          </TouchableOpacity>
-        )}
       </View>
     );
   };
@@ -312,17 +302,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
-  },
-  actionButton: {
-    backgroundColor: 'rgba(108, 92, 231, 0.1)',
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.two,
-    alignItems: 'center',
-    marginTop: Spacing.three,
-  },
-  actionButtonText: {
-    fontWeight: 'bold',
-    fontSize: 14,
   },
 });
