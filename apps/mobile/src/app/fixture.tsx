@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -51,74 +51,98 @@ export default function FixtureScreen() {
     }, [selectedStage])
   );
 
-  const renderMatchCard = ({ item }: { item: Match }) => {
-    const dateParsed = new Date(item.matchDate);
-    const dateFormatted = format(dateParsed, "EEEE d 'de' MMMM - HH:mm 'hs'", { locale: es });
+  // Agrupamos los partidos por fecha (Día)
+  const groupedMatches = useMemo(() => {
+    const groups: Record<string, Match[]> = {};
 
+    matches.forEach(match => {
+      const dateObj = new Date(match.matchDate);
+      const dateKey = format(dateObj, 'yyyy-MM-dd');
+
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(match);
+    });
+
+    // Convertimos el diccionario en un array ordenado para la FlatList
+    return Object.keys(groups)
+      .sort()
+      .map(dateKey => {
+        // Parseamos al mediodía para evitar problemas de desfase horario al mostrar el título
+        const parsedDate = new Date(`${dateKey}T12:00:00`);
+        return {
+          dateKey,
+          dateLabel: format(parsedDate, "EEEE d 'de' MMMM", { locale: es }),
+          data: groups[dateKey]
+        };
+      });
+  }, [matches]);
+
+  const renderMatchRow = (match: Match) => {
     const hasStarted =
-      item.status === MatchStatus.IN_PLAY ||
-      item.status === MatchStatus.PAUSED ||
-      item.status === MatchStatus.FINISHED;
+      match.status === MatchStatus.IN_PLAY ||
+      match.status === MatchStatus.PAUSED ||
+      match.status === MatchStatus.FINISHED;
+
+    const isLive = match.status === MatchStatus.IN_PLAY || match.status === MatchStatus.PAUSED;
+    const matchTime = format(new Date(match.matchDate), 'HH:mm');
 
     return (
-      <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-        <View style={[styles.cardHeader, { borderColor: colors.border }]}>
-          <Text style={[styles.dateText, { color: colors.accentSecondary }]}>{dateFormatted}</Text>
-          {item.groupName && (
-            <Text style={[styles.groupText, { color: colors.textSecondary }]}>
-              {item.groupName.replace('_', ' ')}
-            </Text>
+      <View key={match.id} style={styles.matchRow}>
+        {/* Local: Bandera a la izquierda, Nombre a la derecha */}
+        <View style={styles.teamLeft}>
+          {match.homeTeam.crestUrl ? (
+            <Image source={{ uri: match.homeTeam.crestUrl }} style={styles.flagSmall} />
+          ) : (
+            <View style={[styles.flagSmall, styles.flagPlaceholder, { borderColor: colors.border }]} />
           )}
+          <Text style={[styles.teamNameSmall, { color: colors.text }]} numberOfLines={1}>
+            {match.homeTeam.shortName}
+          </Text>
         </View>
 
-        <View style={styles.matchBody}>
-          {/* Local */}
-          <View style={styles.teamContainer}>
-            {item.homeTeam.crestUrl ? (
-              <Image source={{ uri: item.homeTeam.crestUrl }} style={styles.flag} />
-            ) : (
-              <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
-            )}
-            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
-              {item.homeTeam.shortName}
-            </Text>
-          </View>
-
-          {/* Marcador */}
-          <View style={styles.scoreContainer}>
+        {/* Centro: Badge de horario o resultado */}
+        <View style={styles.centerContainer}>
+          <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
             {hasStarted ? (
-              <View style={styles.scoreRow}>
-                <Text style={[styles.scoreText, { color: colors.text }]}>{item.homeScore}</Text>
-                <Text style={[styles.scoreDivider, { color: colors.textSecondary }]}>-</Text>
-                <Text style={[styles.scoreText, { color: colors.text }]}>{item.awayScore}</Text>
-              </View>
+              <Text style={[
+                styles.badgeText,
+                { color: colors.text },
+                isLive && { color: Colors.light.error } // Texto rojo si está en vivo
+              ]}>
+                {match.homeScore} - {match.awayScore}
+              </Text>
             ) : (
-              <Text style={[styles.versusText, { color: colors.textSecondary }]}>VS</Text>
-            )}
-
-            {item.status === MatchStatus.IN_PLAY && (
-              <View style={styles.liveBadge}>
-                <Text style={styles.liveText}>EN VIVO</Text>
-              </View>
-            )}
-            {item.status === MatchStatus.PAUSED && (
-              <View style={[styles.liveBadge, { backgroundColor: '#E2B13C' }]}>
-                <Text style={styles.liveText}>ENTRETIEMPO</Text>
-              </View>
+              <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
+                {matchTime}
+              </Text>
             )}
           </View>
+        </View>
 
-          {/* Visitante */}
-          <View style={styles.teamContainer}>
-            {item.awayTeam.crestUrl ? (
-              <Image source={{ uri: item.awayTeam.crestUrl }} style={styles.flag} />
-            ) : (
-              <View style={[styles.flag, styles.flagPlaceholder, { borderColor: colors.border }]} />
-            )}
-            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
-              {item.awayTeam.shortName}
-            </Text>
-          </View>
+        {/* Visitante: Nombre a la izquierda, Bandera a la derecha */}
+        <View style={styles.teamRight}>
+          <Text style={[styles.teamNameSmall, { color: colors.text }, { textAlign: 'right' }]} numberOfLines={1}>
+            {match.awayTeam.shortName}
+          </Text>
+          {match.awayTeam.crestUrl ? (
+            <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flagSmall} />
+          ) : (
+            <View style={[styles.flagSmall, styles.flagPlaceholder, { borderColor: colors.border }]} />
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderGroupedCard = ({ item }: { item: { dateLabel: string, data: Match[] } }) => {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{item.dateLabel}</Text>
+
+        <View style={styles.matchesContainer}>
+          {item.data.map(match => renderMatchRow(match))}
         </View>
       </View>
     );
@@ -158,7 +182,7 @@ export default function FixtureScreen() {
           <ActivityIndicator size="large" color={colors.accentPrimary} />
           <Text style={[styles.loaderText, { color: colors.textSecondary }]}>Cargando fixture...</Text>
         </View>
-      ) : matches.length === 0 ? (
+      ) : groupedMatches.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             No hay partidos programados para esta fase.
@@ -166,9 +190,9 @@ export default function FixtureScreen() {
         </View>
       ) : (
         <FlatList
-          data={matches}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderMatchCard}
+          data={groupedMatches}
+          keyExtractor={(item) => item.dateKey}
+          renderItem={renderGroupedCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -220,87 +244,69 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: Spacing.four,
-    gap: Spacing.four,
+    gap: Spacing.four, // Separación entre tarjetas de diferentes días
   },
   card: {
     borderRadius: Spacing.three,
     padding: Spacing.four,
     borderWidth: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.three,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(42, 49, 84, 0.5)',
-    paddingBottom: Spacing.two,
-  },
   dateText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'capitalize',
-  },
-  groupText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
+    textTransform: 'lowercase',
+    marginBottom: Spacing.three,
   },
-  matchBody: {
+  matchesContainer: {
+    gap: Spacing.three, // Separación vertical entre partidos del mismo día
+  },
+  matchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.two,
   },
-  teamContainer: {
-    flex: 1.2,
+  teamLeft: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: Spacing.two,
   },
-  flag: {
-    width: 50,
-    height: 33,
-    borderRadius: 4,
+  teamRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+  },
+  centerContainer: {
+    width: 70, // Espacio fijo para el badge central
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagSmall: {
+    width: 24,
+    height: 16,
+    borderRadius: 2,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   flagPlaceholder: {
     borderWidth: 1,
   },
-  teamName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    width: '100%',
+  teamNameSmall: {
+    fontSize: 13,
+    flexShrink: 1,
   },
-  scoreContainer: {
-    flex: 1,
+  badge: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    minWidth: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  scoreText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  scoreDivider: {
-    fontSize: 20,
-  },
-  versusText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  liveBadge: {
-    backgroundColor: Colors.light.error,
-    paddingVertical: Spacing.half,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Spacing.one,
-    marginTop: Spacing.one,
-  },
-  liveText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  badgeText: {
+    fontSize: 13,
     fontWeight: 'bold',
   },
 });
