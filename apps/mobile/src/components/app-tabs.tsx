@@ -1,3 +1,4 @@
+// apps/mobile/src/components/app-tabs.tsx
 import React from 'react';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -6,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AppTabs() {
   const colors = useTheme();
-  const insets = useSafeAreaInsets(); // Obtenemos las dimensiones seguras del dispositivo
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -15,13 +16,18 @@ export default function AppTabs() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          // Sumamos el inset inferior a la altura y al padding
           height: 60 + insets.bottom,
           paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
+          width: '100%',
+          elevation: 0, // quita sombra en android si la hubiera
+          borderTopWidth: 1, // una línea sutil arriba
         },
-        tabBarActiveTintColor: colors.accentSecondary, // Celeste premium activo
+        tabBarActiveTintColor: colors.accentSecondary,
         tabBarInactiveTintColor: colors.textSecondary,
+        tabBarItemStyle: {
+          flex: 1,
+        },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
@@ -79,14 +85,19 @@ export default function AppTabs() {
       />
 
       {/* ─── PESTAÑAS INTERNAS OCULTAS ─── */}
-      {/* Rutas ignoradas para que no aparezcan como botones en el Bottom Tab */}
       <Tabs.Screen
-        name="(auth)"
-        options={{ href: null }}
+        name="(auth)/login"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
       />
       <Tabs.Screen
         name="explore"
-        options={{ href: null }}
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
       />
       <Tabs.Screen
         name="group/create"
