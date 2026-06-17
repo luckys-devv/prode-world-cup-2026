@@ -98,7 +98,7 @@ export default function FixtureScreen() {
             <View style={[styles.flagSmall, styles.flagPlaceholder, { borderColor: colors.border }]} />
           )}
           <Text style={[styles.teamNameSmall, { color: colors.text }]} numberOfLines={1}>
-            {match.homeTeam.shortName}
+            {match.homeTeam.name}
           </Text>
         </View>
 
@@ -124,7 +124,7 @@ export default function FixtureScreen() {
         {/* Visitante: Nombre a la izquierda, Bandera a la derecha */}
         <View style={styles.teamRight}>
           <Text style={[styles.teamNameSmall, { color: colors.text }, { textAlign: 'right' }]} numberOfLines={1}>
-            {match.awayTeam.shortName}
+            {match.awayTeam.name}
           </Text>
           {match.awayTeam.crestUrl ? (
             <Image source={{ uri: match.awayTeam.crestUrl }} style={styles.flagSmall} />
