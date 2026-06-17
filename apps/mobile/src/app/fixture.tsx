@@ -195,6 +195,10 @@ export default function FixtureScreen() {
           renderItem={renderGroupedCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={5}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </SafeAreaView>
