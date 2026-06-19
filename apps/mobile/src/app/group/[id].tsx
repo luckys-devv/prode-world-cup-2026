@@ -87,9 +87,9 @@ export default function GroupDetailScreen() {
 
   // Evitar re-fetch del campeón si ya fue cargado
   const championDataLoaded = useRef(false);
-
   // Throttle del leaderboard (solo refrescar cada 30 segundos)
   const lastGroupFetchTime = useRef<number>(0);
+  const lastFetchedId = useRef<string | null>(null); // <-- NUEVO: Guardará de qué grupo son los datos actuales
   const REFRESH_INTERVAL = 30_000;
 
   // Selección de campeón
@@ -231,7 +231,18 @@ export default function GroupDetailScreen() {
     useCallback(() => {
       if (!id) return;
       const now = Date.now();
-      // Solo refrescamos si pasaron más de 30 segundos desde la última vez
+
+      // Si entramos a un ID de grupo DIFERENTE al anterior, forzamos la recarga inmediata
+      if (id !== lastFetchedId.current) {
+        setGroup(null); // Borramos visualmente el grupo viejo mientras carga el nuevo
+        championDataLoaded.current = false; // Forzamos a que vuelva a buscar el campeón
+        lastFetchedId.current = id as string;
+
+        fetchGroupData();
+        lastGroupFetchTime.current = now;
+        return;
+      }
+      // Si entramos al MISMO grupo, aplicamos la regla de los 30 segundos
       if (now - lastGroupFetchTime.current > REFRESH_INTERVAL) {
         fetchGroupData();
         lastGroupFetchTime.current = now;
