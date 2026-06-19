@@ -70,7 +70,7 @@ export default function GroupDetailScreen() {
 
   const [group, setGroup] = useState<GroupDetail | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'predictions' | 'members' | 'invite'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'predictions' | 'members' | 'invite' | 'scoring'>('leaderboard');
 
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -442,40 +442,108 @@ export default function GroupDetailScreen() {
         </View>
 
         {/* Subnavegación de Pestañas */}
-        <View style={[styles.tabBar, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'leaderboard' && { backgroundColor: colors.backgroundSelected }]}
-            onPress={() => setActiveTab('leaderboard')}
-          >
-            <ThemedText type="smallBold" themeColor={activeTab === 'leaderboard' ? 'text' : 'textSecondary'}>
-              Posiciones
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'predictions' && { backgroundColor: colors.backgroundSelected }]}
-            onPress={() => setActiveTab('predictions')}
-          >
-            <ThemedText type="smallBold" themeColor={activeTab === 'predictions' ? 'text' : 'textSecondary'}>
-              Partidos
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'members' && { backgroundColor: colors.backgroundSelected }]}
-            onPress={() => setActiveTab('members')}
-          >
-            <ThemedText type="smallBold" themeColor={activeTab === 'members' ? 'text' : 'textSecondary'}>
-              Miembros
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'invite' && { backgroundColor: colors.backgroundSelected }]}
-            onPress={() => setActiveTab('invite')}
-          >
-            <ThemedText type="smallBold" themeColor={activeTab === 'invite' ? 'text' : 'textSecondary'}>
-              Invitar
-            </ThemedText>
-          </TouchableOpacity>
+        <View style={[styles.tabBarContainer, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarScroll}>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'leaderboard' && { backgroundColor: colors.backgroundSelected }]}
+              onPress={() => setActiveTab('leaderboard')}
+            >
+              <ThemedText type="smallBold" themeColor={activeTab === 'leaderboard' ? 'text' : 'textSecondary'}>
+                Posiciones
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'predictions' && { backgroundColor: colors.backgroundSelected }]}
+              onPress={() => setActiveTab('predictions')}
+            >
+              <ThemedText type="smallBold" themeColor={activeTab === 'predictions' ? 'text' : 'textSecondary'}>
+                Partidos
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'members' && { backgroundColor: colors.backgroundSelected }]}
+              onPress={() => setActiveTab('members')}
+            >
+              <ThemedText type="smallBold" themeColor={activeTab === 'members' ? 'text' : 'textSecondary'}>
+                Miembros
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'invite' && { backgroundColor: colors.backgroundSelected }]}
+              onPress={() => setActiveTab('invite')}
+            >
+              <ThemedText type="smallBold" themeColor={activeTab === 'invite' ? 'text' : 'textSecondary'}>
+                Invitar
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'scoring' && { backgroundColor: colors.backgroundSelected }]}
+              onPress={() => setActiveTab('scoring')}
+            >
+              <ThemedText type="smallBold" themeColor={activeTab === 'scoring' ? 'text' : 'textSecondary'}>
+                Puntaje
+              </ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
+
+        {/* Contenido de Pestaña: PUNTAJE */}
+        {activeTab === 'scoring' && (
+          <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
+            <ThemedText type="smallBold" style={styles.cardTitle}>Configuración de Puntaje</ThemedText>
+
+            <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.four }}>
+              El creador ha elegido esta configuración para sumar puntos en este grupo:
+            </ThemedText>
+            <View style={{ gap: Spacing.three }}>
+              {/* Ganador */}
+              <View style={styles.scoringRow}>
+                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>🎯 Acertar Ganador o Empate</ThemedText>
+                {group.scoringConfig.winnerPrediction.enabled ? (
+                  <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.winnerPrediction.points} pts</ThemedText></View>
+                ) : (
+                  <ThemedText type="smallBold" themeColor="error">Apagado</ThemedText>
+                )}
+              </View>
+              {/* Exacto */}
+              <View style={styles.scoringRow}>
+                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>⚽ Acertar Resultado Exacto</ThemedText>
+                {group.scoringConfig.exactScore.enabled ? (
+                  <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.exactScore.points} pts</ThemedText></View>
+                ) : (
+                  <ThemedText type="smallBold" themeColor="error">Apagado</ThemedText>
+                )}
+              </View>
+              {/* Campeón */}
+              <View style={styles.scoringRow}>
+                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>🏆 Acertar Campeón Mundial</ThemedText>
+                {group.scoringConfig.champion.enabled ? (
+                  <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.champion.points} pts</ThemedText></View>
+                ) : (
+                  <ThemedText type="smallBold" themeColor="error">Apagado</ThemedText>
+                )}
+              </View>
+
+              {/* Líder de Grupo */}
+              <View style={styles.scoringRow}>
+                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>⭐ Acertar Líder de Grupo</ThemedText>
+                {group.scoringConfig.groupLeader.enabled ? (
+                  <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.groupLeader.points} pts</ThemedText></View>
+                ) : (
+                  <ThemedText type="smallBold" themeColor="error">Apagado</ThemedText>
+                )}
+              </View>
+            </View>
+            <View style={{ marginTop: Spacing.four, paddingTop: Spacing.three, borderTopWidth: 1, borderColor: colors.border }}>
+              <ThemedText type="smallBold" style={{ color: colors.text }}>👀 Ver pronósticos de otros miembros:</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
+                {group.scoringConfig.showPredictionsBeforeStart
+                  ? "Sí, se pueden espiar las predicciones antes de que empiece el partido."
+                  : "No, solo se pueden ver una vez que el partido haya comenzado (oculto)."}
+              </ThemedText>
+            </View>
+          </ThemedView>
+        )}
 
         {/* Contenido de Pestaña: POSICIONES */}
         {activeTab === 'leaderboard' && (
@@ -598,22 +666,20 @@ export default function GroupDetailScreen() {
             )}
 
             <View style={[styles.stagesSelector, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stagesScroll}>
-                {TIME_TABS.map((tab) => {
-                  const isActive = selectedTimeTab === tab.key;
-                  return (
-                    <TouchableOpacity
-                      key={tab.key}
-                      style={[styles.stageTabButton, isActive && { backgroundColor: colors.accentPrimary }]}
-                      onPress={() => setSelectedTimeTab(tab.key)}
-                    >
-                      <ThemedText type="smallBold" style={[styles.stageTabText, isActive && styles.stageTabTextActive]}>
-                        {tab.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              {TIME_TABS.map((tab) => {
+                const isActive = selectedTimeTab === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.stageTabButton, isActive && { backgroundColor: colors.accentPrimary }]}
+                    onPress={() => setSelectedTimeTab(tab.key)}
+                  >
+                    <ThemedText type="smallBold" style={[styles.stageTabText, isActive && styles.stageTabTextActive]}>
+                      {tab.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {loadingPredictions ? (
@@ -839,10 +905,15 @@ export default function GroupDetailScreen() {
                 style={[styles.memberRow, index > 0 && [styles.borderRow, { borderColor: colors.border }]]}
                 onPress={() => fetchMemberPredictions(member.user.id, member.user.displayName)}
               >
-                <View>
-                  <ThemedText type="smallBold" style={{ color: colors.text }}>{member.user.displayName}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">{member.user.email}</ThemedText>
+                <View style={{ flex: 1, paddingRight: Spacing.two }}>
+                  <ThemedText type="smallBold" style={{ color: colors.text }} numberOfLines={1}>
+                    {member.user.displayName}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                    {member.user.email}
+                  </ThemedText>
                 </View>
+
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two }}>
                   <View style={[
                     styles.roleBadge,
@@ -1094,17 +1165,29 @@ const styles = StyleSheet.create({
   prizeDesc: {
     marginTop: Spacing.one,
   },
-  tabBar: {
-    flexDirection: 'row',
-    borderRadius: Spacing.two,
-    padding: Spacing.one,
+  tabBarContainer: {
     borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  tabBarScroll: {
+    paddingHorizontal: Spacing.one,
+    gap: 4,
   },
   tabItem: {
-    flex: 1,
     paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four, // Ahora usamos padding en lugar de flex:1
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: Spacing.one,
+  },
+  scoringRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.two,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   card: {
     borderRadius: Spacing.three,
@@ -1230,19 +1313,18 @@ const styles = StyleSheet.create({
 
   // Estilos de la Pestaña de Pronósticos
   stagesSelector: {
+    flexDirection: 'row',
     borderWidth: 1,
     borderRadius: Spacing.two,
-    paddingVertical: Spacing.two,
-  },
-  stagesScroll: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
+    padding: Spacing.one,
+    gap: 4,
   },
   stageTabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: Spacing.one + Spacing.half,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.one + Spacing.half,
-    backgroundColor: 'rgba(28, 35, 68, 0.4)',
+    borderRadius: Spacing.one,
   },
   stageTabText: {
     color: Colors.light.textSecondary,
@@ -1304,7 +1386,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Spacing.one,
     width: 44,
-    height: 40,
+    height: 44,
+    padding: 0,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: 'bold',
@@ -1437,7 +1520,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    minHeight: 48,
   },
   modalOverlay: {
     flex: 1,
