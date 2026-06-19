@@ -12,6 +12,7 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect, Link } from 'expo-router';
@@ -442,9 +443,12 @@ export default function GroupDetailScreen() {
             {group.name}
           </ThemedText>
           {group.prizeDescription ? (
-            <ThemedText themeColor="accentGold" type="smallBold" style={styles.prizeDesc}>
-              🏆 Premio: {group.prizeDescription}
-            </ThemedText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.one }}>
+              <Ionicons name="trophy-outline" size={16} color={colors.accentGold} />
+              <ThemedText themeColor="accentGold" type="smallBold">
+                Premio: {group.prizeDescription}
+              </ThemedText>
+            </View>
           ) : (
             <ThemedText themeColor="textSecondary" type="small" style={styles.prizeDesc}>
               Sin premio configurado
@@ -492,7 +496,7 @@ export default function GroupDetailScreen() {
               onPress={() => setActiveTab('scoring')}
             >
               <ThemedText type="smallBold" themeColor={activeTab === 'scoring' ? 'text' : 'textSecondary'}>
-                Puntaje
+                Reglas
               </ThemedText>
             </TouchableOpacity>
           </ScrollView>
@@ -616,7 +620,10 @@ export default function GroupDetailScreen() {
             {/* SELECCIÓN DEL CAMPEÓN DEL MUNDIAL */}
             {group.scoringConfig?.champion?.enabled && (
               <ThemedView type="backgroundElement" style={[styles.card, { borderColor: colors.border }]}>
-                <ThemedText type="smallBold" style={styles.cardTitle}>🏆 Predicción de Campeón Mundial</ThemedText>
+                <View style={[styles.cardTitle, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                  <Ionicons name="trophy-outline" size={18} color="#00D2FF" />
+                  <ThemedText type="smallBold" style={{ color: '#00D2FF' }}>Predicción de Campeón Mundial</ThemedText>
+                </View>
                 <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.three }}>
                   Elegí qué equipo creés que ganará la Copa del Mundo 2026.
                 </ThemedText>
@@ -659,11 +666,14 @@ export default function GroupDetailScreen() {
                     {savingChampion ? (
                       <ActivityIndicator size="small" color={colors.accentPrimary} />
                     ) : (
-                      <ThemedText type="smallBold" style={{ color: colors.text }}>
-                        {championId
-                          ? `🏆 ${teams.find((t) => t.id === championId)?.name}`
-                          : 'Seleccionar Equipo Campeón'}
-                      </ThemedText>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {championId && <Ionicons name="trophy-outline" size={16} color={colors.text} />}
+                        <ThemedText type="smallBold" style={{ color: colors.text }}>
+                          {championId
+                            ? teams.find((t) => t.id === championId)?.name
+                            : 'Seleccionar Equipo Campeón'}
+                        </ThemedText>
+                      </View>
                     )}
                   </TouchableOpacity>
                 )}
@@ -934,7 +944,7 @@ export default function GroupDetailScreen() {
                       {member.role === 'admin' ? 'Creador' : 'Jugador'}
                     </ThemedText>
                   </View>
-                  <ThemedText themeColor="accentSecondary" type="smallBold">👁️ Ver</ThemedText>
+                  <ThemedText themeColor="accentSecondary" type="smallBold">Ver</ThemedText>
                 </View>
               </TouchableOpacity>
             ))}
