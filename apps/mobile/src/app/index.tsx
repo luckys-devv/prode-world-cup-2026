@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../stores/authStore';
@@ -54,10 +55,10 @@ export default function HomeScreen() {
             PANEL PRINCIPAL
           </ThemedText>
           <ThemedText type="subtitle" style={styles.username}>
-            ¡Hola, {user?.displayName || 'Jugador'}!
+            ¡Bienvenido, {user?.displayName || 'Jugador'}!
           </ThemedText>
           <ThemedText themeColor="textSecondary" type="small">
-            Bienvenido al Prode con Amigos 2026.
+            Esto es Prode con Amigos 2026.
           </ThemedText>
         </View>
 
@@ -91,30 +92,34 @@ export default function HomeScreen() {
           style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
           onPress={() => router.push('/fixture')}
         >
-          <View>
-            <ThemedText type="smallBold" themeColor="text">📅 Ver Fixture Completo</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">Revisá los partidos y poné tus pronósticos</ThemedText>
+          {/* Fila del ícono y el título */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginBottom: Spacing.one }}>
+            <Ionicons name="calendar-outline" size={20} color="#00D2FF" />
+            <ThemedText type="smallBold" themeColor="text">Ver Fixture Completo</ThemedText>
           </View>
+          <ThemedText type="small" themeColor="textSecondary">Revisá la fecha y hora de los próximos partidos</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
           onPress={() => router.push('/groups')}
         >
-          <View>
-            <ThemedText type="smallBold" themeColor="text">👥 Mis Grupos con Amigos</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">Creá un grupo o unite a uno existente</ThemedText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginBottom: Spacing.one }}>
+            <Ionicons name="people-outline" size={20} color="#00D2FF" />
+            <ThemedText type="smallBold" themeColor="text">Mis Grupos con Amigos</ThemedText>
           </View>
+          <ThemedText type="small" themeColor="textSecondary">Creá un grupo o unete a uno existente</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
           onPress={() => router.push('/inbox')}
         >
-          <View>
-            <ThemedText type="smallBold" themeColor="text">📬 Invitaciones Recibidas</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">Unite a las salas a las que fuiste invitado</ThemedText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginBottom: Spacing.one }}>
+            <Ionicons name="mail-unread-outline" size={20} color="#00D2FF" />
+            <ThemedText type="smallBold" themeColor="text">Invitaciones Recibidas</ThemedText>
           </View>
+          <ThemedText type="small" themeColor="textSecondary">Revisa tus invitaciones y empieza a jugar</ThemedText>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
