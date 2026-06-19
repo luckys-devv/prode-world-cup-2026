@@ -407,9 +407,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Spacing.one,
     width: 45,
-    height: 35,
+    minHeight: 44,
+    padding: 0,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   submitButton: {
