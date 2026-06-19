@@ -851,7 +851,7 @@ export default function GroupDetailScreen() {
                             ) : (
                               <View style={[styles.predictionRow, { borderTopWidth: 1, borderColor: colors.border, paddingTop: Spacing.two }]}>
                                 {hasPrediction ? (
-                                  <View style={styles.predictionStatusContainer}>
+                                  <View style={[styles.predictionStatusContainer, { flex: 1, justifyContent: 'space-between', paddingRight: Spacing.two }]}>
                                     <ThemedText type="small" themeColor="textSecondary">
                                       Tu resultado: <ThemedText type="smallBold" style={{ color: colors.text }}>{localPred.predictedHomeScore} - {localPred.predictedAwayScore}</ThemedText>
                                     </ThemedText>
