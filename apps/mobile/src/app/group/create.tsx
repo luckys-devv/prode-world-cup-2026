@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors, Spacing } from '../../constants/theme';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -43,6 +43,21 @@ export default function CreateGroupScreen() {
     champion: { enabled: true, points: 5 },
     showPredictionsBeforeStart: false,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      // Limpiamos los estados cada vez que entramos a la pantalla
+      setName('');
+      setPrizeDescription('');
+      setScoringConfig({
+        winnerPrediction: { enabled: true, points: 1 },
+        exactScore: { enabled: true, points: 3 },
+        groupLeader: { enabled: false, points: 3 },
+        champion: { enabled: true, points: 5 },
+        showPredictionsBeforeStart: false,
+      });
+    }, [])
+  );
 
   useEffect(() => {
     const checkGroupStage = async () => {
