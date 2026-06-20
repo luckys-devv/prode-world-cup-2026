@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { Colors, Spacing } from '../../constants/theme';
 import * as authService from '../../services/auth.service';
 
@@ -59,9 +60,13 @@ export default function LoginScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Cabecera / Marca */}
+          {/* Titutlo / Marca */}
           <View style={styles.headerContainer}>
-            <Text style={styles.logoEmoji}>⚽</Text>
+            <Image
+              source={require('../../../assets/images/icon.png')}
+              style={{ width: 120, height: 120, marginBottom: Spacing.two }}
+              contentFit="contain"
+            />
             <Text style={styles.appName}>Prode con Amigos</Text>
             <Text style={styles.appSubtitle}>Predicciones del Mundial 2026</Text>
           </View>

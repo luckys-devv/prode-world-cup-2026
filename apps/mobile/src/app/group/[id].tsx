@@ -513,7 +513,10 @@ export default function GroupDetailScreen() {
             <View style={{ gap: Spacing.three }}>
               {/* Ganador */}
               <View style={styles.scoringRow}>
-                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>🎯 Acertar Ganador o Empate</ThemedText>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={colors.text} />
+                  <ThemedText type="smallBold" style={{ color: colors.text }}>Acertar Ganador o Empate</ThemedText>
+                </View>
                 {group.scoringConfig.winnerPrediction.enabled ? (
                   <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.winnerPrediction.points} pts</ThemedText></View>
                 ) : (
@@ -522,7 +525,10 @@ export default function GroupDetailScreen() {
               </View>
               {/* Exacto */}
               <View style={styles.scoringRow}>
-                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>⚽ Acertar Resultado Exacto</ThemedText>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="football-outline" size={16} color={colors.text} />
+                  <ThemedText type="smallBold" style={{ color: colors.text }}>Acertar Resultado Exacto</ThemedText>
+                </View>
                 {group.scoringConfig.exactScore.enabled ? (
                   <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.exactScore.points} pts</ThemedText></View>
                 ) : (
@@ -531,7 +537,10 @@ export default function GroupDetailScreen() {
               </View>
               {/* Campeón */}
               <View style={styles.scoringRow}>
-                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>🏆 Acertar Campeón Mundial</ThemedText>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="trophy-outline" size={16} color={colors.text} />
+                  <ThemedText type="smallBold" style={{ color: colors.text }}>Acertar Campeón Mundial</ThemedText>
+                </View>
                 {group.scoringConfig.champion.enabled ? (
                   <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.champion.points} pts</ThemedText></View>
                 ) : (
@@ -541,7 +550,10 @@ export default function GroupDetailScreen() {
 
               {/* Líder de Grupo */}
               <View style={styles.scoringRow}>
-                <ThemedText type="smallBold" style={{ flex: 1, color: colors.text }}>⭐ Acertar Líder de Grupo</ThemedText>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="star-outline" size={16} color={colors.text} />
+                  <ThemedText type="smallBold" style={{ color: colors.text }}>Acertar Líder de Grupo</ThemedText>
+                </View>
                 {group.scoringConfig.groupLeader.enabled ? (
                   <View style={[styles.pointsBadge, styles.pointsPositive]}><ThemedText type="code" style={styles.pointsBadgeText}>+{group.scoringConfig.groupLeader.points} pts</ThemedText></View>
                 ) : (
@@ -680,7 +692,7 @@ export default function GroupDetailScreen() {
 
                 {isGroupStageEnded && (
                   <ThemedText type="code" themeColor="error" style={{ marginTop: Spacing.two, textAlign: 'center' }}>
-                    🔒 Elección de campeón cerrada (la fase de grupos ya terminó)
+                    Elección de campeón cerrada (la fase de grupos ya terminó)
                   </ThemedText>
                 )}
               </ThemedView>
@@ -986,9 +998,10 @@ export default function GroupDetailScreen() {
                   showAlert('¡Copiado!', 'El código de invitación se copió al portapapeles.');
                 }}
               >
-                <ThemedText type="smallBold" themeColor="accentSecondary">
-                  📋 Copiar Código
-                </ThemedText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="copy-outline" size={16} color="#00D2FF" />
+                  <ThemedText type="smallBold" style={{ color: '#00D2FF' }}>Copiar Código</ThemedText>
+                </View>
               </TouchableOpacity>
             </ThemedView>
 
@@ -1027,7 +1040,7 @@ export default function GroupDetailScreen() {
             {group.currentUserRole === 'admin' && group.memberCount === 1 && (
               <TouchableOpacity style={styles.deleteGroupButton} onPress={handleDeleteGroup}>
                 <ThemedText type="smallBold" style={styles.deleteGroupText}>
-                  🗑️ Eliminar Grupo
+                  Eliminar Grupo
                 </ThemedText>
               </TouchableOpacity>
             )}

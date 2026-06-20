@@ -154,16 +154,20 @@ export default function GroupsScreen() {
                   <ThemedText type="smallBold" style={[styles.groupName, { color: colors.text }]}>
                     {group.name}
                   </ThemedText>
-                  <View style={[styles.membersBadge, { backgroundColor: 'rgba(0, 210, 255, 0.08)' }]}>
+                  <View style={[styles.membersBadge, { backgroundColor: 'rgba(0, 210, 255, 0.08)', flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                    <Ionicons name="people-outline" size={12} color="#00D2FF" />
                     <ThemedText type="code" style={styles.membersBadgeText}>
-                      👤 {group.memberCount} amigotes
+                      {group.memberCount} amigotes
                     </ThemedText>
                   </View>
                 </View>
                 {group.prizeDescription && (
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.prizeText}>
-                    🏆 Premio: {group.prizeDescription}
-                  </ThemedText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.one }}>
+                    <Ionicons name="trophy-outline" size={14} color={colors.accentGold} />
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.prizeText}>
+                      Premio: {group.prizeDescription}
+                    </ThemedText>
+                  </View>
                 )}
                 <View style={[styles.codeFooter, { borderColor: colors.border }]}>
                   <ThemedText type="code" themeColor="accentSecondary">

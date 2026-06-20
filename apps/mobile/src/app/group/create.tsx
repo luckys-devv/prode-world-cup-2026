@@ -178,7 +178,7 @@ export default function CreateGroupScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <ThemedText themeColor="accentSecondary" type="smallBold">← Volver</ThemedText>
           </TouchableOpacity>
-          <ThemedText type="subtitle" style={[styles.title, { color: colors.text }]}>Crear Grupo 🏆</ThemedText>
+          <ThemedText type="subtitle" style={[styles.title, { color: colors.text }]}>Crear Grupo</ThemedText>
           <ThemedText themeColor="textSecondary" type="small">
             Configurá la sala de juego y sus reglas.
           </ThemedText>
