@@ -562,7 +562,7 @@ export default function GroupDetailScreen() {
               </View>
             </View>
             <View style={{ marginTop: Spacing.four, paddingTop: Spacing.three, borderTopWidth: 1, borderColor: colors.border }}>
-              <ThemedText type="smallBold" style={{ color: colors.text }}>👀 Ver pronósticos de otros miembros:</ThemedText>
+              <ThemedText type="smallBold" style={{ color: colors.text }}>Ver pronósticos de otros miembros:</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
                 {group.scoringConfig.showPredictionsBeforeStart
                   ? "Sí, se pueden espiar las predicciones antes de que empiece el partido."
@@ -1101,7 +1101,7 @@ export default function GroupDetailScreen() {
               style={[styles.modalContent, { borderColor: colors.border, maxHeight: '80%' }]}
             >
               <ThemedText type="smallBold" style={styles.modalTitle}>
-                🎯 Pronósticos de {selectedMember?.displayName}
+                Pronósticos de {selectedMember?.displayName}
               </ThemedText>
 
               {loadingMemberPreds ? (

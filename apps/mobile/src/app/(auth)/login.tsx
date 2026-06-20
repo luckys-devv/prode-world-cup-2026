@@ -63,7 +63,7 @@ export default function LoginScreen() {
           {/* Titutlo / Marca */}
           <View style={styles.headerContainer}>
             <Image
-              source={require('../../../assets/images/icon.png')}
+              source={require('../../../assets/images/login1024.png')}
               style={{ width: 120, height: 120, marginBottom: Spacing.two }}
               contentFit="contain"
             />
